@@ -1,0 +1,157 @@
+// Siddhatva schema. Field names + representations match docs/API_CONTRACT.md:
+// - product price is whole USD dollars (Int), order money is Float (e.g. 133.6)
+// - product.slug is the URL slug; product ids match the frontend catalog ids
+// - badge/status stored as the exact contract string values
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  products Product[]
+}
+
+model Collection {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  products Product[]
+}
+
+model Color {
+  id       String    @id // e.g. "bronze" — matches frontend colour ids
+  name     String
+  hex      String
+  variants Variant[]
+}
+
+model Product {
+  id           String         @id // matches frontend catalog id ("1".."14")
+  position     Int // catalog/"featured" order (= frontend src/data index)
+  slug         String         @unique
+  name         String
+  price        Int // whole USD dollars (contract: 1250 = $1,250.00)
+  description  String
+  sku          String?
+  variantLabel String? // contract's `variant` display sub-label
+  badge        String? // "new" | "limited" | "sold-out"
+  status       String? // "active" | "draft" | "out-of-stock"
+  stock        Int? // product-level stock (contract `stock`)
+  category     Category       @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  collection   Collection?    @relation(fields: [collectionId], references: [id])
+  collectionId String?
+  images       ProductImage[]
+  variants     Variant[]
+  reviews      Review[]
+  wishlistItems WishlistItem[]
+  createdAt    DateTime       @default(now())
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  imageId   String // the contract image id ("1")
+  src       String
+  alt       String
+  position  Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+}
+
+// Colour × size combination with its own stock — makes category/colour/size
+// facets and per-combination stock queryable. The API surfaces distinct colours
+// and sizes plus the product-level stock (per the contract).
+model Variant {
+  id        String  @id @default(cuid())
+  size      String
+  stock     Int     @default(0)
+  position  Int
+  color     Color   @relation(fields: [colorId], references: [id])
+  colorId   String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  @@unique([productId, colorId, size])
+}
+
+model User {
+  id        String         @id @default(cuid())
+  email     String         @unique
+  name      String
+  orders    Order[]
+  wishlist  WishlistItem[]
+  reviews   Review[]
+  addresses Address[]
+}
+
+model Address {
+  id      String  @id @default(cuid())
+  name    String
+  line1   String
+  city    String
+  state   String
+  zip     String
+  country String
+  user    User?   @relation(fields: [userId], references: [id])
+  userId  String?
+  order   Order?
+}
+
+model Order {
+  id                String      @id // "SID-93825" style
+  user              User        @relation(fields: [userId], references: [id])
+  userId            String
+  customerName      String
+  date              String // "YYYY-MM-DD"
+  status            String // processing | shipped | delivered | cancelled
+  subtotal          Float
+  shipping          Float
+  tax               Float
+  total             Float
+  shippingAddress   Address     @relation(fields: [shippingAddressId], references: [id])
+  shippingAddressId String      @unique
+  items             OrderItem[]
+  createdAt         DateTime    @default(now())
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  productId String
+  name      String
+  image     String
+  variant   String // e.g. "Champagne / M"
+  quantity  Int
+  price     Float
+  position  Int
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  rating    Int
+  title     String?
+  body      String
+  createdAt DateTime @default(now())
+}
