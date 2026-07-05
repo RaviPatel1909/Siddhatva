@@ -7,10 +7,12 @@ import { categories, products } from '../../data/products';
 const PAGE_SIZE = 8;
 const STOCK_MAX = 40;
 
-const stockColor = (stock: number) => {
-  if (stock === 0) return 'bg-error';
-  if (stock < 10) return 'bg-tertiary';
-  return 'bg-primary';
+// Stock-level fill uses semantic tokens against a consistent track.
+const STOCK_TRACK = 'bg-surface-container-highest';
+const stockFill = (stock: number) => {
+  if (stock === 0) return 'bg-danger';
+  if (stock < 10) return 'bg-warning';
+  return 'bg-success';
 };
 
 export const ProductManagementPage: React.FC = () => {
@@ -136,9 +138,9 @@ export const ProductManagementPage: React.FC = () => {
                   <td className="py-md font-medium">${product.price.toFixed(2)}</td>
                   <td className="py-md">
                     <div className="flex items-center gap-xs">
-                      <div className="w-16 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                      <div className={`w-16 h-1.5 rounded-full ${STOCK_TRACK} overflow-hidden`}>
                         <div
-                          className={`h-full ${stockColor(product.stock ?? 0)}`}
+                          className={`h-full ${stockFill(product.stock ?? 0)}`}
                           style={{ width: `${Math.min(100, ((product.stock ?? 0) / STOCK_MAX) * 100)}%` }}
                         />
                       </div>

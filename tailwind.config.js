@@ -51,6 +51,13 @@ module.exports = {
         'error-container': '#ffdad6',
         'on-error-container': '#93000a',
 
+        // Semantic status tokens (used as /10 tint + solid text for badges,
+        // and as stock-bar fills). Single source for all status coloring.
+        'success': '#16a34a',
+        'warning': '#d97706',
+        'info': '#2563eb',
+        'danger': '#dc2626',
+
         'inverse-surface': '#332e29',
         'inverse-on-surface': '#f7f0e1',
         'inverse-primary': '#f0c3a9',

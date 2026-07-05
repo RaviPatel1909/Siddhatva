@@ -14,10 +14,10 @@ export const AdminTopbar: React.FC = () => (
       />
     </div>
     <div className="flex items-center gap-md">
-      <button className="text-on-surface-variant hover:bg-surface-variant/50 p-2 rounded-full transition-all">
+      <button className="text-on-surface-variant hover:text-primary hover:bg-surface-variant/50 p-2 rounded-full transition-all">
         <span className="material-symbols-outlined">notifications</span>
       </button>
-      <button className="text-on-surface-variant hover:bg-surface-variant/50 p-2 rounded-full transition-all">
+      <button className="text-on-surface-variant hover:text-primary hover:bg-surface-variant/50 p-2 rounded-full transition-all">
         <span className="material-symbols-outlined">mail</span>
       </button>
       <div className="h-8 w-[1px] bg-outline-variant mx-xs" />

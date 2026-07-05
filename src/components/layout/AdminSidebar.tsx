@@ -32,7 +32,7 @@ export const AdminSidebar: React.FC = () => {
               className={`flex items-center gap-3 px-sm py-xs transition-colors duration-200 ${
                 active
                   ? 'text-primary font-bold border-r-2 border-primary'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                  : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
               }`}
             >
               <span className="material-symbols-outlined">{item.icon}</span>
@@ -47,11 +47,11 @@ export const AdminSidebar: React.FC = () => {
         </button>
       </div>
       <div className="mt-auto space-y-1 border-t border-outline-variant pt-md">
-        <button className="w-full flex items-center gap-3 px-sm py-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 text-left">
+        <button className="w-full flex items-center gap-3 px-sm py-xs text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 text-left">
           <span className="material-symbols-outlined">settings</span>
           <span className="font-body-md text-body-md">Settings</span>
         </button>
-        <button className="w-full flex items-center gap-3 px-sm py-xs text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 text-left">
+        <button className="w-full flex items-center gap-3 px-sm py-xs text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 text-left">
           <span className="material-symbols-outlined">help_outline</span>
           <span className="font-body-md text-body-md">Support</span>
         </button>

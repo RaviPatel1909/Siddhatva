@@ -21,16 +21,18 @@ interface BadgeProps {
 }
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
+  // Product tags keep brand tokens
   new: 'bg-surface text-primary shadow-sm',
   limited: 'bg-tertiary text-on-tertiary',
   'sold-out': 'bg-surface-container-highest text-on-surface-variant',
-  processing: 'bg-surface-container-highest text-on-surface-variant',
-  shipped: 'bg-tertiary text-on-tertiary',
-  delivered: 'bg-secondary text-on-secondary',
-  cancelled: 'bg-error-container text-on-error-container',
-  active: 'bg-secondary text-on-secondary',
+  // Order/product statuses use semantic tokens as /10 tint + solid text
+  processing: 'bg-warning/10 text-warning',
+  shipped: 'bg-info/10 text-info',
+  delivered: 'bg-success/10 text-success',
+  cancelled: 'bg-danger/10 text-danger',
+  active: 'bg-success/10 text-success',
   draft: 'bg-surface-container-highest text-on-surface-variant',
-  'out-of-stock': 'bg-error-container text-on-error-container',
+  'out-of-stock': 'bg-danger/10 text-danger',
   neutral: 'bg-surface-container-high text-on-surface-variant',
 };
 
