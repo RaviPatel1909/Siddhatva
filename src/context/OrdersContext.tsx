@@ -53,7 +53,11 @@ export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       total: input.totals.total,
       shippingAddress: input.shippingAddress,
     };
-    setOrders((prev) => [order, ...prev]);
+    const next = [order, ...orders];
+    setOrders(next);
+    // Persist synchronously too, so an immediate API read (MSW /orders, served
+    // from this store) sees the new order without waiting for the effect.
+    savePersisted(ORDERS_KEY, ORDERS_VERSION, next);
     return order;
   };
 

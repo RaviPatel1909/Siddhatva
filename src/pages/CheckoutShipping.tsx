@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckoutLayout } from '../components/layout/CheckoutLayout';
 import { OrderSummaryCard } from '../components/cart/OrderSummaryCard';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
+import { queryKeys } from '../api/queryKeys';
 
 type Step = 'information' | 'shipping' | 'payment';
 const STEP_LABELS = ['Cart', 'Information', 'Shipping', 'Payment'];
@@ -53,6 +55,7 @@ const labelClass = 'font-label-sm text-label-sm uppercase tracking-widest text-o
 
 export const CheckoutShippingPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { items, subtotal, clearCart } = useCart();
   const { placeOrder } = useOrders();
   const [step, setStep] = useState<Step>('information');
@@ -100,6 +103,8 @@ export const CheckoutShippingPage: React.FC = () => {
       },
     });
     clearCart();
+    // The orders query (My Orders) is served from the persisted store; refetch it.
+    queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
     navigate('/order-confirmed', { state: { orderId: order.id } });
   });
 

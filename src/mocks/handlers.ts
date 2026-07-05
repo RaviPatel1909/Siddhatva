@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import { products } from '../data/products';
 import { orders as seedOrders } from '../data/orders';
 import { getProductById } from '../data/products';
@@ -35,6 +35,17 @@ const shouldFail = (resource: string): boolean => {
   }
 };
 
+// Dev-only latency hook: set localStorage 'siddhatva:mock-delay' to a ms value
+// to slow responses and observe loading skeletons.
+const mockDelay = async (): Promise<void> => {
+  try {
+    const ms = Number(localStorage.getItem('siddhatva:mock-delay') ?? 0);
+    if (ms > 0) await delay(ms);
+  } catch {
+    /* ignore */
+  }
+};
+
 const readPersisted = <T>(key: string): T | null => {
   try {
     const raw = localStorage.getItem(`siddhatva:${key}`);
@@ -53,6 +64,7 @@ export const handlers = [
   // GET /products — filter (category/color/size), sort, paginate, and facets.
   http.get(`${API}/products`, async ({ request }) => {
     if (shouldFail('products')) return fail();
+    await mockDelay();
     const url = new URL(request.url);
     const category = url.searchParams.get('category');
     const color = url.searchParams.get('color');
@@ -96,6 +108,7 @@ export const handlers = [
   // GET /products/:idOrSlug
   http.get(`${API}/products/:idOrSlug`, async ({ params }) => {
     if (shouldFail('product')) return fail();
+    await mockDelay();
     const idOrSlug = String(params.idOrSlug);
     const product =
       getProductById(idOrSlug) ?? products.find((p) => slugify(p.name) === idOrSlug);
@@ -107,6 +120,7 @@ export const handlers = [
   // orders appear; falls back to the seed history.
   http.get(`${API}/orders`, async () => {
     if (shouldFail('orders')) return fail();
+    await mockDelay();
     const persisted = readPersisted<Order[]>('orders');
     const items = persisted ?? seedOrders;
     const body: OrderListResponse = { items, total: items.length };
