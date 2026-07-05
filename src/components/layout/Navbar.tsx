@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 
 // ============================================================================
 // 2. NAVIGATION BAR (Sticky, Glassmorphic)
@@ -22,6 +23,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
 
 export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
   const { itemCount } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const navigate = useNavigate();
 
   return (
@@ -72,11 +74,20 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           </button>
           <button
             onClick={() => navigate('/account/wishlist')}
-            className="material-symbols-outlined text-on-background
+            className="relative material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Wishlist"
           >
             favorite
+            {wishlistCount > 0 && (
+              <span
+                className="absolute -top-2 -right-2 bg-secondary text-on-secondary
+                          text-xs w-5 h-5 rounded-full flex items-center
+                          justify-center font-bold"
+              >
+                {wishlistCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => navigate('/cart')}

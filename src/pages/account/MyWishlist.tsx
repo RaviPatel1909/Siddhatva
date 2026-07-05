@@ -4,18 +4,18 @@ import { AccountLayout } from '../../components/layout/AccountLayout';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useCart } from '../../context/CartContext';
-import { products } from '../../data/products';
+import { useWishlist } from '../../context/WishlistContext';
 
 export const MyWishlistPage: React.FC = () => {
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const [items, setItems] = useState(() => products.slice(2, 8));
+  const { items, removeItem } = useWishlist();
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
-  const handleRemove = (id: string) => {
+  const animateOut = (id: string, after: () => void) => {
     setRemovingIds((prev) => new Set(prev).add(id));
     setTimeout(() => {
-      setItems((prev) => prev.filter((product) => product.id !== id));
+      after();
       setRemovingIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
@@ -24,11 +24,22 @@ export const MyWishlistPage: React.FC = () => {
     }, 300);
   };
 
+  const handleRemove = (id: string) => animateOut(id, () => removeItem(id));
+
+  const handleMoveToBag = (id: string) => {
+    const product = items.find((p) => p.id === id);
+    if (!product) return;
+    addItem(product, product.colors[0], product.sizes[0]);
+    animateOut(id, () => removeItem(id));
+  };
+
   return (
     <AccountLayout>
       <div className="flex items-center justify-between mb-xl">
         <h1 className="font-display text-3xl text-primary">My Wishlist</h1>
-        <p className="text-sm text-on-surface-variant">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
+        <p className="text-sm text-on-surface-variant">
+          {items.length} {items.length === 1 ? 'item' : 'items'}
+        </p>
       </div>
 
       {items.length === 0 ? (
@@ -81,12 +92,12 @@ export const MyWishlistPage: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        addItem(product, product.colors[0], product.sizes[0]);
+                        handleMoveToBag(product.id);
                       }}
                       className="w-full bg-primary text-on-primary font-label-sm py-md rounded uppercase tracking-widest
                                 hover:opacity-90 transition-opacity active:scale-95"
                     >
-                      Add to Bag
+                      Move to Bag
                     </button>
                   </div>
                 </div>

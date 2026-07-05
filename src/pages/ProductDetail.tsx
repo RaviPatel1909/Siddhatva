@@ -7,12 +7,14 @@ import { ProductDetails } from '../components/product/ProductDetails';
 import { ProductAccordion } from '../components/product/ProductAccordion';
 import { RelatedProducts } from '../components/sections/RelatedProducts';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { getProductById, products } from '../data/products';
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { isInWishlist, toggle } = useWishlist();
 
   const product = getProductById(id ?? '') ?? products[0];
 
@@ -45,6 +47,8 @@ export const ProductDetailPage: React.FC = () => {
               colors={product.colors}
               sizes={product.sizes}
               onAddToCart={(data) => addItem(product, data.color, data.size, data.quantity)}
+              isWished={isInWishlist(product.id)}
+              onToggleWishlist={() => toggle(product)}
             />
             <ProductAccordion
               items={[

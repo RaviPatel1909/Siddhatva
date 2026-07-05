@@ -1,6 +1,8 @@
 import React from 'react';
 import { Badge } from '../ui/Badge';
 import { ProductBadge } from '../../types/product';
+import { useWishlist } from '../../context/WishlistContext';
+import { getProductById } from '../../data/products';
 
 // ============================================================================
 // 9. PRODUCT CARD (For grids like "Complete the Look")
@@ -38,7 +40,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   soldOut,
   onAddToCart,
   onViewDetails,
-}) => (
+}) => {
+  const { isInWishlist, toggle } = useWishlist();
+  const wished = isInWishlist(id);
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const product = getProductById(id);
+    if (product) toggle(product);
+  };
+
+  return (
   <div className="flex flex-col gap-sm group cursor-pointer" onClick={onViewDetails}>
     {/* Product Image */}
     <div
@@ -57,6 +69,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <Badge variant={badge}>{BADGE_LABELS[badge]}</Badge>
         </span>
       )}
+
+      {/* Wishlist heart */}
+      <button
+        onClick={handleToggleWishlist}
+        aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
+        aria-pressed={wished}
+        className="absolute top-md right-md z-10 w-9 h-9 rounded-full bg-surface/90 backdrop-blur-sm
+                  flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+      >
+        <span
+          className={`material-symbols-outlined text-[20px] ${wished ? 'text-primary' : 'text-on-surface-variant'}`}
+          style={{ fontVariationSettings: `'FILL' ${wished ? 1 : 0}` }}
+        >
+          favorite
+        </span>
+      </button>
 
       {/* Quick Add Button (shown on hover), or Notify Me if sold out */}
       <div
@@ -110,4 +138,5 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </p>
     </div>
   </div>
-);
+  );
+};

@@ -17,6 +17,8 @@ interface ProductDetailsProps {
     size: string;
     quantity: number;
   }) => void;
+  isWished?: boolean;
+  onToggleWishlist?: () => void;
   rating?: { stars: number; count: number };
 }
 
@@ -27,6 +29,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   colors,
   sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
   onAddToCart,
+  isWished = false,
+  onToggleWishlist,
   rating,
 }) => {
   const [selectedColor, setSelectedColor] = useState<Color>(colors[0]);
@@ -90,13 +94,28 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
           />
           <button
             onClick={handleAddToCart}
-            className="flex-1 bg-primary text-on-primary py-md 
-                      font-label-sm uppercase tracking-widest rounded 
-                      hover:opacity-90 transition-opacity duration-300 
-                      active:scale-95 focus:outline-none focus:ring-2 
+            className="flex-1 bg-primary text-on-primary py-md
+                      font-label-sm uppercase tracking-widest rounded
+                      hover:opacity-90 transition-opacity duration-300
+                      active:scale-95 focus:outline-none focus:ring-2
                       focus:ring-primary/50"
           >
             Add to Cart
+          </button>
+          <button
+            onClick={onToggleWishlist}
+            aria-label={isWished ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-pressed={isWished}
+            className="shrink-0 w-12 h-12 flex items-center justify-center rounded border
+                      border-outline-variant hover:border-primary transition-colors active:scale-95
+                      focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <span
+              className={`material-symbols-outlined ${isWished ? 'text-primary' : 'text-on-surface'}`}
+              style={{ fontVariationSettings: `'FILL' ${isWished ? 1 : 0}` }}
+            >
+              favorite
+            </span>
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
+import { WishlistProvider } from './context/WishlistContext';
 import { ScrollToTop } from './components/shared/ScrollToTop';
 import { HomePage } from './pages/Home';
 import { ShopAllPage } from './pages/ShopAll';
@@ -46,10 +47,12 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <CartProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <AnimatedRoutes />
-      </BrowserRouter>
+      <WishlistProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <AnimatedRoutes />
+        </BrowserRouter>
+      </WishlistProvider>
     </CartProvider>
   );
 }
