@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ProductCard } from '../components/product/ProductCard';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
@@ -23,8 +23,8 @@ const SORT_OPTIONS = [
 export const ShopAllPage: React.FC = () => {
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeCategory = searchParams.get('category');
+  const { category } = useParams<{ category?: string }>();
+  const activeCategory = category ?? null;
   const [activeColorId, setActiveColorId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortOption>('featured');
   const [page, setPage] = useState(1);
@@ -63,7 +63,7 @@ export const ShopAllPage: React.FC = () => {
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleCategoryClick = (name: string | null) => {
-    setSearchParams(name ? { category: name } : {});
+    navigate(name ? `/shop/${name}` : '/shop');
   };
 
   const handleColorClick = (id: string | null) => {

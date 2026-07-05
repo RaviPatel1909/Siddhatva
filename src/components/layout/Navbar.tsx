@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 
 // ============================================================================
@@ -11,23 +11,18 @@ interface NavbarProps {
 }
 
 // Single shared nav — every customer-facing layout renders this component.
-// Each link targets a distinct category URL so the active check can single
-// out the current route instead of lighting up all four on /shop.
-const NAV_LINKS: { label: string; href: string; category: string | null }[] = [
-  { label: 'Men', href: '/shop?category=Men', category: 'Men' },
-  { label: 'Women', href: '/shop?category=Women', category: 'Women' },
-  { label: 'Kids', href: '/shop?category=Kids', category: 'Kids' },
-  { label: 'Collections', href: '/shop', category: null },
+// Distinct category PATHS (not query strings) so NavLink's own isActive is
+// per-link accurate for both the highlight and aria-current.
+const NAV_LINKS: { label: string; href: string }[] = [
+  { label: 'Men', href: '/shop/Men' },
+  { label: 'Women', href: '/shop/Women' },
+  { label: 'Kids', href: '/shop/Kids' },
+  { label: 'Collections', href: '/shop' },
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
   const { itemCount } = useCart();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const activeCategory = new URLSearchParams(location.search).get('category');
-  const isLinkActive = (category: string | null) =>
-    location.pathname === '/shop' && activeCategory === category;
 
   return (
     <nav
@@ -49,18 +44,20 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           </Link>
           <div className="hidden md:flex gap-lg">
             {NAV_LINKS.map((link) => (
-              <Link
+              <NavLink
                 key={link.label}
                 to={link.href}
-                aria-current={isLinkActive(link.category) ? 'page' : undefined}
-                className={`font-body-md text-body-md font-medium transition-colors ${
-                  isLinkActive(link.category)
-                    ? 'text-primary border-b-2 border-primary pb-1'
-                    : 'text-on-surface hover:text-primary'
-                }`}
+                end
+                className={({ isActive }) =>
+                  `font-body-md text-body-md font-medium transition-colors ${
+                    isActive
+                      ? 'text-primary border-b-2 border-primary pb-1'
+                      : 'text-on-surface hover:text-primary'
+                  }`
+                }
               >
                 {link.label}
-              </Link>
+              </NavLink>
             ))}
           </div>
         </div>

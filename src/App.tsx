@@ -26,6 +26,7 @@ const AnimatedRoutes = () => {
       <Routes location={location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopAllPage />} />
+        <Route path="/shop/:category" element={<ShopAllPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/cart" element={<ShoppingBagPage />} />
         <Route path="/checkout" element={<CheckoutShippingPage />} />
