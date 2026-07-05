@@ -1,13 +1,164 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Fonts must precede all other rules (@import is ignored otherwise) */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utility classes */
+.glass-nav {
+  @apply backdrop-blur-md;
+  -webkit-backdrop-filter: blur(12px);
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Shared chrome surfaces — navbar, footer, checkout header, and mobile bottom
+   nav all reference these two classes so their tones can never drift apart.
+   .chrome-surface: cream glass for floating chrome (navbar, headers, bottom nav).
+   .chrome-surface-grounded: one tonal step deeper, for grounded chrome (footer)
+   that would otherwise blend into the cream page with only a border for
+   separation. Same warm family as .chrome-surface. */
+.chrome-surface {
+  @apply bg-background/90 glass-nav;
+}
+
+.chrome-surface-grounded {
+  @apply bg-surface-container;
+}
+
+.bronze-shadow {
+  @apply shadow-bronze;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(60vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: confetti-fall 3.5s ease-in forwards;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.6s ease-out both;
+}
+
+/* Route transition — subtle fade + lift on navigation, replayed by keying the
+   route wrapper on pathname. Kept understated per the brand. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 220ms ease-out;
+}
+
+/* Scroll-reveal sections (paired with IntersectionObserver in FadeInSection) */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-in-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Accessibility: honor reduced-motion — instant navigation, no decorative
+   animation, content never hidden behind a reveal. Must come after the
+   animation rules above so it wins the cascade at equal specificity. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  .page-enter,
+  .fade-in-up {
+    animation: none;
+  }
+
+  .confetti-piece {
+    display: none;
+  }
+
+  .fade-in-section {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+.grain-overlay::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  pointer-events: none;
+  background-image: url('https://www.transparenttextures.com/patterns/felt.png');
+  z-index: 9999;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Base styles */
+@layer base {
+  ::selection {
+    @apply bg-primary/20 text-on-surface;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-on-background font-body-md;
+  }
+
+  button {
+    @apply focus:outline-none;
+  }
+
+  a {
+    @apply transition-colors;
+  }
 }
