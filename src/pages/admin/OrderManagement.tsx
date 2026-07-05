@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
@@ -30,6 +30,51 @@ export const OrderManagementPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? null;
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  // Drawer a11y: Escape closes, Tab is trapped within the panel, focus moves
+  // in on open and returns to the trigger on close.
+  useEffect(() => {
+    if (!selectedOrderId) return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('disabled'));
+
+    focusables()[0]?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setSelectedOrderId(null);
+        return;
+      }
+      if (e.key === 'Tab') {
+        const items = focusables();
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [selectedOrderId]);
 
   const revenueToday = orders.reduce((sum, order) => sum + order.total, 0);
   const avgValue = revenueToday / orders.length;
@@ -157,6 +202,11 @@ export const OrderManagementPage: React.FC = () => {
         />
       )}
       <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={selectedOrder ? `Order ${selectedOrder.id} details` : undefined}
+        aria-hidden={selectedOrder ? undefined : true}
         className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-surface shadow-2xl z-50 transform transition-transform duration-300 overflow-y-auto ${
           selectedOrder ? 'translate-x-0' : 'translate-x-full'
         }`}
@@ -165,7 +215,11 @@ export const OrderManagementPage: React.FC = () => {
           <div className="p-lg">
             <div className="flex justify-between items-center mb-lg">
               <h3 className="font-display text-headline-md text-primary">Order #{selectedOrder.id}</h3>
-              <button onClick={() => setSelectedOrderId(null)} className="p-1 text-on-surface-variant hover:text-primary">
+              <button
+                onClick={() => setSelectedOrderId(null)}
+                aria-label="Close order details"
+                className="p-1 text-on-surface-variant hover:text-primary"
+              >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
