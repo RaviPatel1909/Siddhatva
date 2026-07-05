@@ -1,6 +1,10 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Product } from '../types/product';
 import { getProductById } from '../data/products';
+import { loadPersisted, savePersisted } from '../lib/persist';
+
+const WISHLIST_KEY = 'wishlist';
+const WISHLIST_VERSION = 1;
 
 interface WishlistContextValue {
   items: Product[];
@@ -18,7 +22,16 @@ const initialItems = (): Product[] =>
   ['7', '8', '9'].map((id) => getProductById(id)).filter((p): p is Product => Boolean(p));
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<Product[]>(initialItems);
+  const [items, setItems] = useState<Product[]>(() => {
+    const ids = loadPersisted<string[] | null>(WISHLIST_KEY, WISHLIST_VERSION, null);
+    return ids
+      ? ids.map((id) => getProductById(id)).filter((p): p is Product => Boolean(p))
+      : initialItems();
+  });
+
+  useEffect(() => {
+    savePersisted(WISHLIST_KEY, WISHLIST_VERSION, items.map((p) => p.id));
+  }, [items]);
 
   const addItem = (product: Product) =>
     setItems((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]));
