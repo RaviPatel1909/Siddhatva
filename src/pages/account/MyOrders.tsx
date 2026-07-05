@@ -2,7 +2,7 @@ import React from 'react';
 import { AccountLayout } from '../../components/layout/AccountLayout';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { orders } from '../../data/orders';
+import { useOrders } from '../../context/OrdersContext';
 import { OrderStatus } from '../../types/order';
 
 const STATUS_ICON: Record<OrderStatus, string> = {
@@ -20,6 +20,8 @@ const STATUS_ACTIONS: Record<OrderStatus, string[]> = {
 };
 
 export const MyOrdersPage: React.FC = () => {
+  const { orders } = useOrders();
+
   if (orders.length === 0) {
     return (
       <AccountLayout>

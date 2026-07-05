@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { OrdersProvider } from './context/OrdersContext';
 import { ScrollToTop } from './components/shared/ScrollToTop';
 import { HomePage } from './pages/Home';
 import { ShopAllPage } from './pages/ShopAll';
@@ -48,10 +49,12 @@ function App() {
   return (
     <CartProvider>
       <WishlistProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <AnimatedRoutes />
-        </BrowserRouter>
+        <OrdersProvider>
+          <BrowserRouter>
+            <ScrollToTop />
+            <AnimatedRoutes />
+          </BrowserRouter>
+        </OrdersProvider>
       </WishlistProvider>
     </CartProvider>
   );
