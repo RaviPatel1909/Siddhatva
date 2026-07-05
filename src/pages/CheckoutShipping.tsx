@@ -89,7 +89,7 @@ export const CheckoutShippingPage: React.FC = () => {
   const onPlaceOrder = handleSubmit(async (values) => {
     const payment = await processPayment();
     if (!payment.ok) return;
-    const order = placeOrder({
+    const order = await placeOrder({
       items,
       totals: { subtotal, shipping, tax, total },
       customerName: `${values.firstName} ${values.lastName}`,

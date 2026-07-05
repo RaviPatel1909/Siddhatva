@@ -3,6 +3,7 @@ import { Order } from '../types/order';
 import { orders as seedOrders } from '../data/orders';
 import { CartLineItem } from './CartContext';
 import { loadPersisted, savePersisted } from '../lib/persist';
+import { createOrder } from '../api/orders';
 
 const ORDERS_KEY = 'orders';
 const ORDERS_VERSION = 1;
@@ -16,7 +17,7 @@ export interface PlaceOrderInput {
 
 interface OrdersContextValue {
   orders: Order[];
-  placeOrder: (input: PlaceOrderInput) => Order;
+  placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   getOrderById: (id: string) => Order | undefined;
 }
 
@@ -33,12 +34,15 @@ export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     savePersisted(ORDERS_KEY, ORDERS_VERSION, orders);
   }, [orders]);
 
-  const placeOrder = (input: PlaceOrderInput): Order => {
-    const order: Order = {
+  // Create the order through the API (POST /orders) so it round-trips to the
+  // backend (real server, or MSW in dev). The returned order is the source of
+  // truth for the local context (which AccountOverview / admin read) and is
+  // persisted so those views survive a reload.
+  const placeOrder = async (input: PlaceOrderInput): Promise<Order> => {
+    const created = await createOrder({
       id: `SID-${Math.floor(10000 + Math.random() * 89999)}`,
-      customerName: input.customerName,
       date: new Date().toISOString().slice(0, 10),
-      status: 'processing',
+      customerName: input.customerName,
       items: input.items.map((line) => ({
         productId: line.product.id,
         name: line.product.name,
@@ -52,13 +56,11 @@ export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tax: input.totals.tax,
       total: input.totals.total,
       shippingAddress: input.shippingAddress,
-    };
-    const next = [order, ...orders];
+    });
+    const next = [created, ...orders];
     setOrders(next);
-    // Persist synchronously too, so an immediate API read (MSW /orders, served
-    // from this store) sees the new order without waiting for the effect.
     savePersisted(ORDERS_KEY, ORDERS_VERSION, next);
-    return order;
+    return created;
   };
 
   const getOrderById = (id: string) => orders.find((o) => o.id === id);

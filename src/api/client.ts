@@ -18,8 +18,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
-      headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
       ...init,
+      headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
     });
   } catch (cause) {
     throw new ApiError('Network request failed', 0, cause);

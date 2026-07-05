@@ -4,7 +4,7 @@
 // implement verbatim. The MSW mock (src/mocks) serves exactly these shapes.
 // ============================================================================
 import { Product } from '../types/product';
-import { Order } from '../types/order';
+import { Order, OrderItem } from '../types/order';
 
 // A catalog product as returned by the API — the domain Product plus a URL slug.
 export type ApiProduct = Product & { slug: string };
@@ -46,6 +46,19 @@ export type ApiOrder = Order;
 export interface OrderListResponse {
   items: ApiOrder[];
   total: number;
+}
+
+// POST /orders request body. Status is assigned server-side.
+export interface CreateOrderInput {
+  id?: string;
+  date?: string;
+  customerName: string;
+  items: OrderItem[];
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+  shippingAddress: Order['shippingAddress'];
 }
 
 export interface WishlistResponse {

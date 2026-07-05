@@ -212,6 +212,37 @@ interface OrderListResponse {
 
 ---
 
+### POST `/orders`
+
+Create an order — the checkout write path. Persists the order and returns it in
+the same shape `GET /orders` returns.
+
+**Request body** (`application/json`) — `CreateOrderInput`:
+
+```ts
+interface CreateOrderInput {
+  id?: string;   // client-supplied; server generates one if absent
+  date?: string; // "YYYY-MM-DD"; server uses today if absent
+  customerName: string;
+  items: OrderItem[];
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+  shippingAddress: Address;
+}
+```
+
+`status` is assigned server-side (`processing`).
+
+**Response `201`** — the created `Order`.
+
+**Errors:**
+- `400 { "message": "Validation failed", "issues": [...] }` on invalid input.
+- `500 { "message": string }` on server error.
+
+---
+
 ### GET `/wishlist`
 
 The signed-in customer's saved products.
@@ -231,13 +262,21 @@ interface WishlistResponse {
 
 **Errors:** `500 { "message": string }` on server error.
 
+#### POST `/wishlist` `{ productId }` / DELETE `/wishlist/:productId`
+
+Add or remove a saved product. Both return the updated `WishlistResponse`
+(`200`/`201`). `POST` 404s (`{ "message": "Product not found" }`) for an unknown
+product. (The app currently keeps wishlist selection in client state, so these
+are part of the contract but not yet consumed by the UI.)
+
 ---
 
 ## Error model (summary)
 
 | Status | Body                              | When |
 |--------|-----------------------------------|------|
-| `404`  | `{ "message": "Product not found" }` | `GET /products/:idOrSlug` with no match |
+| `400`  | `{ "message": "Validation failed", "issues": [...] }` | Invalid request body/params (Zod) |
+| `404`  | `{ "message": "Product not found" }` | `GET /products/:idOrSlug` (or `POST /wishlist`) with no match |
 | `500`  | `{ "message": string }`           | Any server-side failure |
 
 The frontend client throws `ApiError { message, status, body }` for every

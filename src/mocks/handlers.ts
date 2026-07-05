@@ -127,6 +127,15 @@ export const handlers = [
     return HttpResponse.json(body);
   }),
 
+  // POST /orders — accept the order and echo it with a server status. The
+  // client's OrdersContext persists to the store that GET /orders reads, so the
+  // new order round-trips here just as it does against the real backend.
+  http.post(`${API}/orders`, async ({ request }) => {
+    if (shouldFail('orders')) return fail();
+    const order = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ ...order, status: 'processing' }, { status: 201 });
+  }),
+
   // GET /wishlist — bridged to the persisted client store.
   http.get(`${API}/wishlist`, async () => {
     if (shouldFail('wishlist')) return fail();
