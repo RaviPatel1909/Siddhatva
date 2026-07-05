@@ -19,7 +19,7 @@
    that would otherwise blend into the cream page with only a border for
    separation. Same warm family as .chrome-surface. */
 .chrome-surface {
-  @apply bg-background/90 glass-nav;
+  @apply bg-surface/90 glass-nav;
 }
 
 .chrome-surface-grounded {

@@ -47,7 +47,7 @@ export const Footer: React.FC<FooterProps> = ({
               <li key={link}>
                 <a
                   href="#"
-                  className="font-body-md text-body-md text-on-surface-variant 
+                  className="font-body-md text-body-md text-on-background/70
                            hover:text-primary transition-colors"
                 >
                   {link}
@@ -67,7 +67,7 @@ export const Footer: React.FC<FooterProps> = ({
               <li key={link}>
                 <a
                   href="#"
-                  className="font-body-md text-body-md text-on-surface-variant 
+                  className="font-body-md text-body-md text-on-background/70
                            hover:text-primary transition-colors"
                 >
                   {link}
@@ -94,10 +94,10 @@ export const Footer: React.FC<FooterProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email Address"
-              className="w-full h-12 bg-surface border border-outline-variant rounded-lg px-4
+              className="w-full h-12 bg-transparent border border-border rounded-lg px-4
                         text-on-surface font-body-md text-sm
                         placeholder:text-on-surface-variant
-                        focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary
+                        focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30
                         transition-all"
               required
             />
@@ -106,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({
               disabled={!isEmailValid}
               aria-label="Subscribe"
               className="h-12 w-12 shrink-0 flex items-center justify-center rounded-lg
-                        bg-primary text-on-primary shadow-md hover:brightness-110 active:scale-95 transition-all
+                        bg-secondary text-on-secondary shadow-sm hover:brightness-105 active:scale-95 transition-all
                         disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100"
             >
               <span className="material-symbols-outlined">arrow_forward</span>
@@ -121,20 +121,20 @@ export const Footer: React.FC<FooterProps> = ({
                   border-outline-variant/10 flex flex-col md:flex-row 
                   justify-between items-center gap-sm"
       >
-        <p className="font-body-md text-body-md text-on-surface-variant/70 text-sm">
+        <p className="font-body-md text-body-md text-on-background/60 text-sm">
           © 2024 {brandName}. All rights reserved.
         </p>
         <div className="flex gap-md">
           <a
             href="#"
-            className="font-body-md text-on-surface-variant/70 
+            className="font-body-md text-on-background/60
                       hover:text-primary text-sm transition-colors"
           >
             Privacy Policy
           </a>
           <a
             href="#"
-            className="font-body-md text-on-surface-variant/70 
+            className="font-body-md text-on-background/60
                       hover:text-primary text-sm transition-colors"
           >
             Terms of Service

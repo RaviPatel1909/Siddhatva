@@ -26,19 +26,18 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
 
   return (
     <nav
-      className="sticky top-0 z-50 w-full h-20 chrome-surface
-                 border-b border-border shadow-sm"
+      className="sticky top-0 z-50 w-full h-20 chrome-surface border-b border-border"
     >
       <div
-        className="flex justify-between items-center w-full px-margin-desktop
+        className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop
                    max-w-7xl mx-auto h-20"
       >
         {/* Logo and Nav Links */}
         <div className="flex items-center gap-lg">
           <Link
             to="/"
-            className="font-display text-headline-md text-primary tracking-tighter
-                      hover:opacity-80 transition-opacity duration-300"
+            className="font-display text-headline-md uppercase tracking-widest text-primary
+                      hover:opacity-80 transition-opacity duration-200"
           >
             {brandName}
           </Link>
@@ -49,10 +48,10 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
                 to={link.href}
                 end
                 className={({ isActive }) =>
-                  `font-body-md text-body-md font-medium transition-colors ${
+                  `font-body-md text-body-md p-2 transition-colors duration-200 ${
                     isActive
-                      ? 'text-primary border-b-2 border-primary pb-1'
-                      : 'text-on-surface hover:text-primary'
+                      ? 'text-primary font-semibold border-b-2 border-primary pb-1'
+                      : 'text-on-background/70 hover:text-primary'
                   }`
                 }
               >
@@ -65,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
         {/* Icon Actions */}
         <div className="flex items-center gap-md">
           <button
-            className="material-symbols-outlined text-on-surface
+            className="material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Search"
           >
@@ -73,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           </button>
           <button
             onClick={() => navigate('/account/wishlist')}
-            className="material-symbols-outlined text-on-surface
+            className="material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Wishlist"
           >
@@ -81,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           </button>
           <button
             onClick={() => navigate('/cart')}
-            className="relative material-symbols-outlined text-on-surface
+            className="relative material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Shopping Cart"
           >
@@ -98,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           </button>
           <button
             onClick={() => navigate('/account')}
-            className="material-symbols-outlined text-on-surface
+            className="material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Account"
           >
