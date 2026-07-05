@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
-import { orders } from '../../data/orders';
+import { useOrders } from '../../context/OrdersContext';
 
 const BARS = [32, 48, 56, 40, 64, 72, 80];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL'];
@@ -18,6 +18,7 @@ const initials = (name: string) =>
 
 export const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { orders } = useOrders();
   const recentOrders = orders.slice(0, 4);
 
   return (

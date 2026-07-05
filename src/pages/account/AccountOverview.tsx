@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AccountLayout } from '../../components/layout/AccountLayout';
 import { Badge } from '../../components/ui/Badge';
-import { orders } from '../../data/orders';
+import { useOrders } from '../../context/OrdersContext';
 import { products } from '../../data/products';
 
 const QUICK_LINKS = [
@@ -12,7 +12,8 @@ const QUICK_LINKS = [
 
 export const AccountOverviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const recentOrder = orders.find((order) => order.status === 'delivered') ?? orders[0];
+  const { orders } = useOrders();
+  const recentOrder = orders[0]; // most recent order from the single source of truth
   const wishlistPreview = products.slice(6, 10);
 
   return (

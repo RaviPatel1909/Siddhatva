@@ -3,7 +3,7 @@ import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
-import { orders } from '../../data/orders';
+import { useOrders } from '../../context/OrdersContext';
 
 const PAGE_SIZE = 6;
 
@@ -11,6 +11,7 @@ const initials = (name: string) =>
   name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
 export const OrderManagementPage: React.FC = () => {
+  const { orders } = useOrders();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -25,7 +26,7 @@ export const OrderManagementPage: React.FC = () => {
       const matchesStatus = status === 'all' || order.status === status;
       return matchesSearch && matchesStatus;
     });
-  }, [search, status]);
+  }, [orders, search, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
