@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -18,6 +19,9 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use(morgan('dev'));
+
+  // Local dev image store: serve uploaded files (no-op in Cloudinary mode).
+  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });

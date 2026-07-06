@@ -9,6 +9,7 @@ import {
   ProductBadge,
   ProductStatus,
 } from '../contract';
+import { imageStore } from './imageStore';
 
 // Relations needed to build the contract shapes. Ordered so distinct colours
 // and sizes come out in the authored (frontend) order.
@@ -52,7 +53,12 @@ export function toApiProduct(p: ProductWithRelations): ApiProduct {
     status: (p.status as ProductStatus | null) ?? undefined,
     colors: Array.from(colorMap.values()),
     sizes,
-    images: p.images.map((img) => ({ id: img.imageId, src: img.src, alt: img.alt })),
+    // Deliver optimized URLs (Cloudinary f_auto/q_auto); seed/local URLs pass through.
+    images: p.images.map((img) => ({
+      id: img.imageId,
+      src: imageStore.toDeliveryUrl(img.src),
+      alt: img.alt,
+    })),
     slug: p.slug,
   };
 }
