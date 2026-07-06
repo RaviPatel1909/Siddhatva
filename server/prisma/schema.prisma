@@ -80,14 +80,37 @@ model Variant {
   @@unique([productId, colorId, size])
 }
 
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
 model User {
-  id        String         @id @default(cuid())
-  email     String         @unique
-  name      String
-  orders    Order[]
-  wishlist  WishlistItem[]
-  reviews   Review[]
-  addresses Address[]
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  password      String // bcrypt hash
+  role          Role           @default(CUSTOMER)
+  orders        Order[]
+  wishlist      WishlistItem[]
+  reviews       Review[]
+  addresses     Address[]
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+}
+
+// One row per issued refresh token (hashed). Rotation revokes the old row and
+// inserts a new one, so a stolen/replayed token can be detected and cut off.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique // sha256 of the raw refresh token
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Address {

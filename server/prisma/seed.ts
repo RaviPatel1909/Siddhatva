@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 // Seed from the frontend's mock data so the DB starts with the exact catalog
 // (ids, names, colours, sizes, prices, stock) the MSW handlers served.
 import { products } from '../../src/data/products';
@@ -28,6 +29,7 @@ function buildVariants(p: SeedProduct) {
 
 async function main() {
   // Reset (respecting FK order).
+  await prisma.refreshToken.deleteMany();
   await prisma.review.deleteMany();
   await prisma.wishlistItem.deleteMany();
   await prisma.orderItem.deleteMany();
@@ -41,9 +43,23 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.user.deleteMany();
 
-  // Demo customer (the signed-in user until auth exists).
+  // Seed one ADMIN and one CUSTOMER. The existing order/wishlist history below
+  // belongs to the customer, so the two accounts demonstrably see different data.
+  await prisma.user.create({
+    data: {
+      email: 'admin@siddhatva.com',
+      name: 'Admin Sterling',
+      password: bcrypt.hashSync('admin1234', 10),
+      role: 'ADMIN',
+    },
+  });
   const user = await prisma.user.create({
-    data: { email: 'alexander@siddhatva.com', name: 'Alexander Sterling' },
+    data: {
+      email: 'customer@siddhatva.com',
+      name: 'Alexander Sterling',
+      password: bcrypt.hashSync('customer1234', 10),
+      role: 'CUSTOMER',
+    },
   });
 
   // Categories in first-seen order.
