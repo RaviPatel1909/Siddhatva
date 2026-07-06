@@ -60,7 +60,7 @@ Validation errors return `400 { message: "Validation failed", issues: [...] }`.
 | `GET /products`, `GET /products/:idOrSlug` | public |
 | `GET`/`POST /orders` | authenticated (scoped to the user) |
 | `GET`/`POST`/`DELETE /wishlist` | authenticated (scoped to the user) |
-| `GET /admin/orders`, `GET /admin/stats` | authenticated **+ ADMIN** |
+| `/admin/*` (orders, stats, products CRUD, uploads, order status) | authenticated **+ ADMIN** |
 
 ---
 
@@ -303,6 +303,49 @@ Add or remove a saved product. Both return the updated `WishlistResponse`
 (`200`/`201`). `POST` 404s (`{ "message": "Product not found" }`) for an unknown
 product. (The app currently keeps wishlist selection in client state, so these
 are part of the contract but not yet consumed by the UI.)
+
+---
+
+## Admin endpoints
+
+All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
+(401 unauthenticated, 403 for non-admins).
+
+| Endpoint | Body | Success | Notes |
+|----------|------|---------|-------|
+| `GET /admin/orders` | — | `200 OrderListResponse` | every order across all customers |
+| `GET /admin/stats` | — | `200 { totalOrders, totalRevenue, totalProducts, totalCustomers }` | |
+| `PATCH /admin/orders/:id/status` | `{ status }` | `200 Order` | validates transitions (processing→shipped→delivered, →cancelled; terminal states → `422`) |
+| `GET /admin/products/:id` | — | `200 AdminProduct` | full editable shape: variant matrix + raw image `url`/`publicId` |
+| `POST /admin/products` | `ProductInput` | `201 ApiProduct` | |
+| `PATCH /admin/products/:id` | `Partial<ProductInput>` | `200 ApiProduct` | replaces variants/images when provided |
+| `DELETE /admin/products/:id` | — | `200 { ok }` | also deletes each image from the image store |
+| `POST /admin/products/bulk-delete` | `{ ids }` | `200 { ok, count }` | |
+| `PATCH /admin/products/bulk-status` | `{ ids, status }` | `200 { ok, count }` | |
+| `GET /admin/upload-signature` | — | `200 UploadAuthorization` | Cloudinary signed params, or the local dev upload target |
+| `POST /admin/upload-dev` | multipart `file` | `201 { url, publicId }` | **local image store only** (Cloudinary uploads go direct from the browser) |
+
+```ts
+interface ProductInput {
+  name: string; price: number; description: string; category: string;
+  variant?: string; sku?: string;
+  badge?: 'new' | 'limited' | 'sold-out' | null;
+  status?: 'active' | 'draft' | 'out-of-stock' | null;
+  stock?: number;
+  colors: { id: string; name: string; hex: string }[];
+  sizes: string[];
+  variants: { colorId: string; size: string; stock: number }[]; // the colour×size matrix
+  images: { url: string; publicId?: string | null; alt?: string }[]; // [0] is primary
+}
+```
+
+**Image store.** `GET /admin/upload-signature` returns how to upload for the
+active store. With `CLOUDINARY_*` configured it returns signed params
+(`{ mode:'cloudinary', cloudName, apiKey, timestamp, signature, folder }`) and
+the browser uploads directly to Cloudinary; otherwise it returns
+`{ mode:'local', uploadUrl:'/admin/upload-dev' }`. Either way the client ends
+with `{ url, publicId }`, which is stored on the product and paired for deletion.
+Cloudinary delivery URLs are optimized (`f_auto,q_auto`) by the mapper.
 
 ---
 
