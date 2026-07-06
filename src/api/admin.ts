@@ -27,6 +27,11 @@ export const updateOrderStatus = (id: string, status: OrderStatus): Promise<ApiO
     body: JSON.stringify({ status }),
   });
 
+// --- Shipping ---
+// POST /admin/orders/:id/ship — create the shipment for a PAID order (idempotent).
+export const shipOrder = (id: string): Promise<ApiOrder> =>
+  apiFetch<ApiOrder>(`/admin/orders/${id}/ship`, { method: 'POST' });
+
 // --- Image upload ---
 interface UploadAuthorization {
   mode: 'cloudinary' | 'local';

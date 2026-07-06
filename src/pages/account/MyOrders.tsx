@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AccountLayout } from '../../components/layout/AccountLayout';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { TrackingTimeline } from '../../components/order/TrackingTimeline';
 import { getOrders } from '../../api/orders';
 import { queryKeys } from '../../api/queryKeys';
 import { OrderStatus } from '../../types/order';
@@ -17,7 +18,7 @@ const STATUS_ICON: Record<OrderStatus, string> = {
 };
 
 const STATUS_ACTIONS: Record<OrderStatus, string[]> = {
-  delivered: ['View Details', 'Buy Again'],
+  delivered: ['Track Order', 'View Details', 'Buy Again'],
   shipped: ['Track Order', 'View Details'],
   processing: ['Modify Order', 'Cancel Order'],
   cancelled: ['View Details'],
@@ -46,6 +47,7 @@ export const MyOrdersPage: React.FC = () => {
   });
 
   const orders = data?.items ?? [];
+  const [trackingId, setTrackingId] = useState<string | null>(null);
 
   return (
     <AccountLayout>
@@ -97,16 +99,42 @@ export const MyOrdersPage: React.FC = () => {
                     <p className="text-sm font-medium text-primary">${(item.price * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
-                <div className="flex gap-sm pt-sm">
-                  {STATUS_ACTIONS[order.status].map((action) => (
-                    <button
-                      key={action}
-                      className="px-md py-xs rounded-lg border border-outline-variant text-sm text-on-surface hover:bg-surface-container-high transition-colors"
-                    >
-                      {action}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-sm pt-sm">
+                  {STATUS_ACTIONS[order.status].map((action) =>
+                    action === 'Track Order' ? (
+                      <button
+                        key={action}
+                        onClick={() => setTrackingId((id) => (id === order.id ? null : order.id))}
+                        aria-expanded={trackingId === order.id}
+                        className="px-md py-xs rounded-lg border border-primary text-sm text-primary font-medium hover:bg-primary/5 transition-colors inline-flex items-center gap-xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+                        {trackingId === order.id ? 'Hide Tracking' : 'Track Order'}
+                      </button>
+                    ) : (
+                      <button
+                        key={action}
+                        className="px-md py-xs rounded-lg border border-outline-variant text-sm text-on-surface hover:bg-surface-container-high transition-colors"
+                      >
+                        {action}
+                      </button>
+                    )
+                  )}
                 </div>
+
+                {trackingId === order.id && (
+                  <div className="mt-sm rounded-lg border border-outline-variant/30 bg-surface-container-low p-lg">
+                    <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant mb-md">
+                      Tracking
+                    </h4>
+                    <TrackingTimeline
+                      shippingStatus={order.shippingStatus}
+                      courier={order.courier}
+                      awb={order.awb}
+                      trackingUrl={order.trackingUrl}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ))}

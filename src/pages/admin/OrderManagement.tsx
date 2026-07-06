@@ -4,20 +4,28 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAdminOrders, updateOrderStatus, OrderStatus } from '../../api/admin';
+import { getAdminOrders, updateOrderStatus, shipOrder, OrderStatus } from '../../api/admin';
 
-// Allowed transitions mirror the server (delivered/cancelled are terminal).
+// Remaining status actions. Shipping a `processing` order is handled by the
+// Create Shipment action (which needs a PAID order), not a manual status change,
+// so `processing` here only offers Cancel. delivered/cancelled are terminal.
 const NEXT_ACTIONS: Record<string, { label: string; status: OrderStatus; danger?: boolean }[]> = {
-  processing: [
-    { label: 'Mark as Shipped', status: 'shipped' },
-    { label: 'Cancel Order', status: 'cancelled', danger: true },
-  ],
+  processing: [{ label: 'Cancel Order', status: 'cancelled', danger: true }],
   shipped: [
     { label: 'Mark as Delivered', status: 'delivered' },
     { label: 'Cancel Order', status: 'cancelled', danger: true },
   ],
   delivered: [],
   cancelled: [],
+};
+
+const SHIPPING_LABEL: Record<string, string> = {
+  not_shipped: 'Not shipped',
+  shipment_created: 'Shipment created',
+  in_transit: 'In transit',
+  out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
 };
 
 const PAGE_SIZE = 6;
@@ -30,12 +38,27 @@ export const OrderManagementPage: React.FC = () => {
   const { data } = useQuery({ queryKey: ['admin', 'orders'], queryFn: getAdminOrders });
   const orders = data?.items ?? [];
   const [updating, setUpdating] = useState(false);
+  const [shipError, setShipError] = useState<string | null>(null);
   const changeStatus = async (id: string, status: OrderStatus) => {
     setUpdating(true);
     try {
       await updateOrderStatus(id, status);
       // Refetch so the drawer badge and the table both reflect the change.
       await qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    } finally {
+      setUpdating(false);
+    }
+  };
+  // Create the shipment (server guards PAID + is idempotent). This transitions
+  // the order to shipped and emits order.shipped (→ shipping email).
+  const createShipment = async (id: string) => {
+    setUpdating(true);
+    setShipError(null);
+    try {
+      await shipOrder(id);
+      await qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    } catch (err) {
+      setShipError(err instanceof Error ? err.message : 'Could not create shipment.');
     } finally {
       setUpdating(false);
     }
@@ -60,6 +83,9 @@ export const OrderManagementPage: React.FC = () => {
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? null;
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  // Clear any stale shipment error when switching/closing the drawer.
+  useEffect(() => setShipError(null), [selectedOrderId]);
 
   // Drawer a11y: Escape closes, Tab is trapped within the panel, focus moves
   // in on open and returns to the trigger on close.
@@ -298,6 +324,70 @@ export const OrderManagementPage: React.FC = () => {
               <div className="flex justify-between"><span className="text-on-surface-variant">Shipping</span><span>{selectedOrder.shipping === 0 ? 'Complimentary' : `$${selectedOrder.shipping.toFixed(2)}`}</span></div>
               <div className="flex justify-between"><span className="text-on-surface-variant">Tax</span><span>${selectedOrder.tax.toFixed(2)}</span></div>
               <div className="flex justify-between font-semibold pt-xs border-t border-outline-variant/20"><span>Total</span><span className="text-primary">${selectedOrder.total.toFixed(2)}</span></div>
+            </div>
+
+            <div className="mb-lg">
+              <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-sm">
+                Shipment
+              </h4>
+              {selectedOrder.awb ? (
+                <div className="space-y-xs text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Status</span>
+                    <span className="font-medium text-on-surface">
+                      {SHIPPING_LABEL[selectedOrder.shippingStatus ?? 'not_shipped']}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">Courier</span>
+                    <span className="font-medium text-on-surface">{selectedOrder.courier}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-on-surface-variant">AWB</span>
+                    <span className="font-medium text-on-surface">{selectedOrder.awb}</span>
+                  </div>
+                  <div className="flex gap-md pt-xs">
+                    {selectedOrder.labelUrl && (
+                      <a
+                        href={selectedOrder.labelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-semibold hover:underline inline-flex items-center gap-xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">description</span>
+                        Label
+                      </a>
+                    )}
+                    {selectedOrder.trackingUrl && (
+                      <a
+                        href={selectedOrder.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-semibold hover:underline inline-flex items-center gap-xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                        Track
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : selectedOrder.paymentStatus === 'PAID' ? (
+                <>
+                  <button
+                    onClick={() => createShipment(selectedOrder.id)}
+                    disabled={updating}
+                    className="w-full py-sm rounded-lg bg-primary text-on-primary font-label-sm text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-xs"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">local_shipping</span>
+                    Create Shipment
+                  </button>
+                  {shipError && <p className="text-xs text-danger mt-xs">{shipError}</p>}
+                </>
+              ) : (
+                <p className="text-sm text-on-surface-variant">
+                  Order must be paid before it can ship.
+                </p>
+              )}
             </div>
 
             <div className="space-y-sm">
