@@ -344,10 +344,16 @@ mock mode when `RAZORPAY_*` is unset — same signature paths, no account needed
 | `GET /orders/:id` | user | — | `200 Order` | reflects the server-verified payment state |
 | `POST /webhooks/razorpay` | signature | raw body | `200 { received: true }` | **source of truth**; HMAC-SHA256(raw_body, webhook_secret) vs `x-razorpay-signature`; handles `payment.captured`/`payment.failed` idempotently; `400` on bad signature. Mounted with `express.raw` **before** `express.json`. |
 
-**Order lifecycle events** (internal pub/sub; subscribers log for now, Phases 7-9
-add email/WhatsApp/logistics): `order.placed` (on create), `order.paid` (verify +
-webhook, once), `order.shipped` / `order.delivered` / `order.cancelled` (admin
-status transitions).
+**Order lifecycle events** (internal pub/sub): `order.placed` (on create),
+`order.paid` (verify + webhook, once), `order.shipped` / `order.delivered` /
+`order.cancelled` (admin status transitions).
+
+These are **server-internal side effects — they do not change any request/response
+shape**. As of Phase 7, transactional email subscribes to the bus:
+`order.paid` → order-confirmation email, `order.shipped` → shipping email, sent to
+the order's user (idempotent per `(orderId, type)`; dev fallback renders to
+`server/.mail/` — see `RESEND.md`). Phases 8–9 (logistics, WhatsApp) subscribe the
+same way.
 
 ---
 
