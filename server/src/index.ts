@@ -1,5 +1,9 @@
 import { env } from './env';
 import { createApp } from './app';
+import { registerEmailSubscribers } from './lib/email/subscribers';
+
+// Wire lifecycle-event side-effects (transactional email) before serving.
+registerEmailSubscribers();
 
 const app = createApp();
 

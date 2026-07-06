@@ -179,6 +179,20 @@ model SiteContent {
   updatedAt DateTime @updatedAt
 }
 
+// One row per transactional email sent for an order, keyed by (orderId, type).
+// The email subscribers create a row before sending; the unique constraint makes
+// a duplicate lifecycle event (webhook retry, repeated admin PATCH) a no-op —
+// durable idempotency that survives restarts.
+model SentEmail {
+  id        String   @id @default(cuid())
+  orderId   String
+  type      String // "order_confirmation" | "shipping_notification"
+  to        String
+  createdAt DateTime @default(now())
+
+  @@unique([orderId, type])
+}
+
 model Review {
   id        String   @id @default(cuid())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
