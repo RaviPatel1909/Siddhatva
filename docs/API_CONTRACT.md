@@ -121,17 +121,29 @@ interface Address {
   country: string;
 }
 
+// Normalized shipping status — distinct from fulfillment `status` and
+// `paymentStatus`. The Shiprocket tracking webhook is its source of truth.
+type ShippingStatus =
+  | 'not_shipped' | 'shipment_created' | 'in_transit'
+  | 'out_for_delivery' | 'delivered' | 'cancelled';
+
 interface Order {
   id: string;              // e.g. "SID-93825"
   customerName: string;
   date: string;            // "YYYY-MM-DD"
   status: OrderStatus;
+  paymentStatus: PaymentStatus;  // 'PENDING' | 'PAID' | 'FAILED'
   items: OrderItem[];
   subtotal: number;
   shipping: number;        // 0 = complimentary
   tax: number;
   total: number;
   shippingAddress: Address;
+  shippingStatus: ShippingStatus;   // always present
+  awb?: string;            // present once a shipment exists
+  courier?: string;
+  trackingUrl?: string;    // courier tracking page (customer-facing)
+  labelUrl?: string;       // shipping label PDF (admin)
 }
 ```
 
@@ -344,16 +356,27 @@ mock mode when `RAZORPAY_*` is unset — same signature paths, no account needed
 | `GET /orders/:id` | user | — | `200 Order` | reflects the server-verified payment state |
 | `POST /webhooks/razorpay` | signature | raw body | `200 { received: true }` | **source of truth**; HMAC-SHA256(raw_body, webhook_secret) vs `x-razorpay-signature`; handles `payment.captured`/`payment.failed` idempotently; `400` on bad signature. Mounted with `express.raw` **before** `express.json`. |
 
+## Shipping (Shiprocket, two-way)
+
+Prepaid only (no COD). An order ships only after `paymentStatus = PAID`. The
+provider runs in **mock mode** when `SHIPROCKET_*` is unset — same handler paths,
+no account needed. See `SHIPROCKET.md`.
+
+| Endpoint | Auth | Body | Success | Notes |
+|----------|------|------|---------|-------|
+| `POST /admin/orders/:id/ship` | admin | — | `201 Order` (`200` if already shipped) | guards PAID (`409` otherwise); creates the shipment, persists `awb`/`courier`/`labelUrl`/`trackingUrl`, sets `shippingStatus='shipment_created'` + `status='shipped'`, emits `order.shipped`. Idempotent — no duplicate shipment. |
+| `POST /webhooks/shiprocket` | `x-api-key` token | raw body `{ awb, current_status }` | `200 { received: true }` | **source of truth** for delivery; maps Shiprocket status → `shippingStatus` idempotently + monotonically; emits `order.delivered` on the transition into delivered. `401` on bad/missing token. Mounted with `express.raw` **before** `express.json`. |
+
 **Order lifecycle events** (internal pub/sub): `order.placed` (on create),
-`order.paid` (verify + webhook, once), `order.shipped` / `order.delivered` /
-`order.cancelled` (admin status transitions).
+`order.paid` (verify + webhook, once), `order.shipped` (admin ships / status
+transition), `order.delivered` (tracking webhook / status transition),
+`order.cancelled` (status transition).
 
 These are **server-internal side effects — they do not change any request/response
-shape**. As of Phase 7, transactional email subscribes to the bus:
-`order.paid` → order-confirmation email, `order.shipped` → shipping email, sent to
-the order's user (idempotent per `(orderId, type)`; dev fallback renders to
-`server/.mail/` — see `RESEND.md`). Phases 8–9 (logistics, WhatsApp) subscribe the
-same way.
+shape**. Email subscribes (Phase 7): `order.paid` → order-confirmation, `order.shipped`
+→ shipping email (idempotent per `(orderId, type)`; dev fallback renders to
+`server/.mail/` — see `RESEND.md`). Shipping subscribes (Phase 8) via the ship route
+and the tracking webhook above.
 
 ---
 
