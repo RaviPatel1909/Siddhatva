@@ -10,6 +10,7 @@ import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useAuth } from '../context/AuthContext';
 import { queryKeys } from '../api/queryKeys';
+import { collectPayment, payInit, verifyPayment } from '../api/payments';
 
 type Step = 'information' | 'shipping' | 'payment';
 const STEP_LABELS = ['Cart', 'Information', 'Shipping', 'Payment'];
@@ -27,27 +28,15 @@ const checkoutSchema = z.object({
   state: z.string().min(1, 'Required'),
   zip: z.string().min(1, 'Required'),
   country: z.string().min(1, 'Select a country'),
-  cardName: z.string().min(1, 'Required'),
-  cardNumber: z.string().regex(/^\d{4} ?\d{4} ?\d{4} ?\d{4}$/, 'Enter a 16-digit card number'),
-  expiry: z.string().regex(/^\d{2}\/\d{2}$/, 'MM/YY'),
-  cvc: z.string().regex(/^\d{3,4}$/, '3 or 4 digits'),
 });
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
+// Card details are collected securely by Razorpay Checkout, not this form.
 const STEP_FIELDS: Record<Step, (keyof CheckoutFormValues)[]> = {
   information: ['email', 'marketingOptIn'],
   shipping: ['firstName', 'lastName', 'address', 'apartment', 'city', 'state', 'zip', 'country'],
-  payment: ['cardName', 'cardNumber', 'expiry', 'cvc'],
+  payment: [],
 };
-
-// --- MOCK PAYMENT SEAM ------------------------------------------------------
-// No real gateway yet. A later phase replaces this with a real payment intent
-// (e.g. create + confirm a Stripe PaymentIntent); on success, continue to
-// order creation exactly as below. Keep this the single place payment happens.
-const processPayment = async (): Promise<{ ok: boolean }> => {
-  return { ok: true };
-};
-// ---------------------------------------------------------------------------
 
 const inputClass =
   'w-full bg-surface border border-outline-variant rounded-lg px-md py-sm font-body-md text-sm ' +
@@ -61,6 +50,9 @@ export const CheckoutShippingPage: React.FC = () => {
   const { placeOrder } = useOrders();
   const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>('information');
+  // The PENDING order is created once, then reused across payment retries.
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
   const tax = subtotal * 0.08;
@@ -88,26 +80,47 @@ export const CheckoutShippingPage: React.FC = () => {
     else setStep(step === 'payment' ? 'shipping' : 'information');
   };
 
+  // Order-first payment flow: create the order (PENDING), open Razorpay Checkout
+  // (or the mock), verify server-side, then confirm. The webhook is authoritative;
+  // this gives instant confirmation. On dismiss/failure the cart + order stay so
+  // the user can retry.
   const onPlaceOrder = handleSubmit(async (values) => {
-    const payment = await processPayment();
-    if (!payment.ok) return;
-    const order = await placeOrder({
-      items,
-      totals: { subtotal, shipping, tax, total },
-      customerName: `${values.firstName} ${values.lastName}`,
-      shippingAddress: {
+    setPayError(null);
+    try {
+      let orderId = createdOrderId;
+      if (!orderId) {
+        const order = await placeOrder({
+          items,
+          totals: { subtotal, shipping, tax, total },
+          customerName: `${values.firstName} ${values.lastName}`,
+          shippingAddress: {
+            name: `${values.firstName} ${values.lastName}`,
+            line1: values.apartment ? `${values.address}, ${values.apartment}` : values.address,
+            city: values.city,
+            state: values.state,
+            zip: values.zip,
+            country: values.country,
+          },
+        });
+        orderId = order.id;
+        setCreatedOrderId(orderId);
+      }
+
+      const init = await payInit(orderId);
+      const result = await collectPayment(orderId, init, {
         name: `${values.firstName} ${values.lastName}`,
-        line1: values.apartment ? `${values.address}, ${values.apartment}` : values.address,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-      },
-    });
-    clearCart();
-    // The orders query (My Orders) is served from the persisted store; refetch it.
-    queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
-    navigate('/order-confirmed', { state: { orderId: order.id } });
+        email: values.email,
+      });
+      await verifyPayment(result);
+
+      clearCart();
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
+      navigate('/order-confirmed', { state: { orderId } });
+    } catch (err) {
+      setPayError(
+        err instanceof Error ? err.message : 'Payment could not be completed. Please try again.'
+      );
+    }
   });
 
   // Placing an order requires an account (POST /orders is authenticated).
@@ -162,7 +175,7 @@ export const CheckoutShippingPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl">
-          <form onSubmit={onPlaceOrder} className="lg:col-span-8 space-y-xl" noValidate>
+          <form onSubmit={(e) => e.preventDefault()} className="lg:col-span-8 space-y-xl" noValidate>
             {step === 'information' && (
               <div>
                 <h2 className="font-display text-headline-md text-primary mb-md">Contact Information</h2>
@@ -236,31 +249,22 @@ export const CheckoutShippingPage: React.FC = () => {
             {step === 'payment' && (
               <div>
                 <h2 className="font-display text-headline-md text-primary mb-md">Payment</h2>
-                <p className="text-xs text-on-surface-variant mb-md italic">
-                  Demo checkout — no real payment is processed.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                  <div className="sm:col-span-2">
-                    <label className={labelClass}>Name on Card</label>
-                    <input className={inputClass} {...register('cardName')} />
-                    <FieldError name="cardName" />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={labelClass}>Card Number</label>
-                    <input className={inputClass} placeholder="4242 4242 4242 4242" {...register('cardNumber')} />
-                    <FieldError name="cardNumber" />
-                  </div>
+                <div className="bg-surface-container-low rounded-lg border border-outline-variant/30 p-lg flex items-start gap-md">
+                  <span className="material-symbols-outlined text-primary">lock</span>
                   <div>
-                    <label className={labelClass}>Expiry (MM/YY)</label>
-                    <input className={inputClass} placeholder="12/28" {...register('expiry')} />
-                    <FieldError name="expiry" />
-                  </div>
-                  <div>
-                    <label className={labelClass}>CVC</label>
-                    <input className={inputClass} placeholder="123" {...register('cvc')} />
-                    <FieldError name="cvc" />
+                    <p className="text-sm text-on-surface font-medium">Secure payment via Razorpay</p>
+                    <p className="text-xs text-on-surface-variant mt-xs">
+                      Card, UPI, and netbanking are handled in Razorpay&apos;s secure window — we
+                      never see your card details. Your order is confirmed only after the payment is
+                      verified.
+                    </p>
                   </div>
                 </div>
+                {payError && (
+                  <div role="alert" className="mt-md rounded-lg bg-danger/10 border border-danger/30 px-md py-sm text-sm text-danger">
+                    {payError}
+                  </div>
+                )}
               </div>
             )}
 
@@ -275,11 +279,12 @@ export const CheckoutShippingPage: React.FC = () => {
               </button>
               {step === 'payment' ? (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={onPlaceOrder}
                   disabled={isSubmitting}
                   className="bg-primary text-on-primary px-xl py-md rounded-lg font-label-sm text-sm uppercase tracking-widest font-semibold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  Pay ${total.toFixed(2)}
+                  {isSubmitting ? 'Processing…' : `Pay $${total.toFixed(2)}`}
                 </button>
               ) : (
                 <button

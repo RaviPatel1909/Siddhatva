@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { CheckoutLayout } from '../components/layout/CheckoutLayout';
 import { useOrders } from '../context/OrdersContext';
+import { getOrder } from '../api/orders';
 
 const CONFETTI_CLASSES = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-primary-container'];
 
@@ -11,7 +13,14 @@ export const OrderConfirmedPage: React.FC = () => {
   const { getOrderById, orders } = useOrders();
 
   const orderId = (location.state as { orderId?: string } | null)?.orderId;
-  const order = (orderId ? getOrderById(orderId) : undefined) ?? orders[0];
+  // Prefer the server order — it reflects the verified PAID state, not the
+  // browser's word. The webhook is authoritative; this reads the result.
+  const { data: fetched } = useQuery({
+    queryKey: ['order', orderId],
+    queryFn: () => getOrder(orderId as string),
+    enabled: !!orderId,
+  });
+  const order = fetched ?? (orderId ? getOrderById(orderId) : undefined) ?? orders[0];
 
   const [confetti] = useState(() =>
     Array.from({ length: 28 }, (_, i) => ({
@@ -56,9 +65,22 @@ export const OrderConfirmedPage: React.FC = () => {
             <span className="material-symbols-outlined text-5xl text-primary">check_circle</span>
           </div>
           <h1 className="font-display text-headline-lg text-primary mb-md">Thank You for Your Order</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant mb-xl">
+          <p className="font-body-md text-body-md text-on-surface-variant mb-md">
             Your order has been placed and is being prepared with care by our atelier.
           </p>
+          <div className="mb-xl">
+            {order.paymentStatus === 'PAID' ? (
+              <span className="inline-flex items-center gap-xs text-sm font-medium text-success">
+                <span className="material-symbols-outlined text-[18px]">verified</span>
+                Payment confirmed
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-xs text-sm text-on-surface-variant">
+                <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                Payment is being confirmed…
+              </span>
+            )}
+          </div>
           <div className="flex flex-col sm:flex-row gap-md justify-center">
             <button
               onClick={() => navigate('/account/orders')}

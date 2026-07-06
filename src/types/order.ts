@@ -1,4 +1,5 @@
 export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
 
 export interface OrderItem {
   productId: string;
@@ -14,6 +15,7 @@ export interface Order {
   customerName: string;
   date: string;
   status: OrderStatus;
+  paymentStatus?: PaymentStatus;
   items: OrderItem[];
   subtotal: number;
   shipping: number;
