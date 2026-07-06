@@ -11,12 +11,18 @@ import { ordersRouter } from './routes/orders';
 import { wishlistRouter } from './routes/wishlist';
 import { adminRouter } from './routes/admin';
 import { siteRouter } from './routes/site';
+import { webhookRouter } from './routes/webhooks';
 
 export function createApp() {
   const app = express();
 
   // credentials:true so the httpOnly refresh cookie flows cross-origin (dev).
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
+
+  // Webhook needs the RAW body for signature verification — mount it (with
+  // express.raw) BEFORE express.json parses everything else.
+  app.use('/api/webhooks/razorpay', express.raw({ type: '*/*' }), webhookRouter);
+
   app.use(express.json());
   app.use(cookieParser());
   app.use(morgan('dev'));

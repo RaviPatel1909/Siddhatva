@@ -10,6 +10,7 @@ import { adminProductsRouter } from './adminProducts';
 import { orderStatusBody, homeContentSchema } from '../schemas';
 import { HOME_KEY } from '../lib/homeContent';
 import { Prisma } from '@prisma/client';
+import { orderEvents, OrderEvent } from '../lib/events';
 
 export const adminRouter = Router();
 
@@ -65,6 +66,15 @@ adminRouter.patch(
       data: { status },
       include: orderInclude,
     });
+
+    // Emit the matching lifecycle event (subscribers handle email/logistics later).
+    const EVENT_FOR: Record<string, OrderEvent> = {
+      shipped: 'order.shipped',
+      delivered: 'order.delivered',
+      cancelled: 'order.cancelled',
+    };
+    if (EVENT_FOR[status]) orderEvents.emit(EVENT_FOR[status], { orderId: updated.id });
+
     res.json(toApiOrder(updated));
   })
 );

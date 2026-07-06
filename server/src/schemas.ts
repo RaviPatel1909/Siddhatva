@@ -107,6 +107,13 @@ export const orderStatusBody = z.object({
   status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
 });
 
+// --- Payments ---
+export const paymentVerifyBody = z.object({
+  razorpay_order_id: z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
+});
+
 // --- Site content (home) — full-replace of the fixed slots ---
 export const homeContentSchema = z.object({
   hero: z.object({
