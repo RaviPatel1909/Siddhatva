@@ -26,21 +26,21 @@ const loadGuestItems = (): Product[] =>
   loadGuestIds()
     .map((id) => getProductById(id))
     .filter((p): p is Product => Boolean(p));
+const saveGuest = (items: Product[]): void =>
+  savePersisted(WISHLIST_KEY, WISHLIST_VERSION, items.map((p) => p.id));
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [items, setItems] = useState<Product[]>(() => loadGuestItems());
   const syncedUser = useRef<string | null>(null);
+  const userRef = useRef(user);
+  userRef.current = user;
 
-  // Persist only for guests; a logged-in user's list lives on the server and
-  // must not leak into the shared guest store.
-  useEffect(() => {
-    if (!user) savePersisted(WISHLIST_KEY, WISHLIST_VERSION, items.map((p) => p.id));
-  }, [items, user]);
-
-  // React to auth changes: on login, MERGE the guest wishlist into the account
-  // (union by product), then treat the server as the source of truth. On logout,
-  // fall back to the (now empty-ish) guest store.
+  // React to auth changes. On login, MERGE the guest wishlist into the account
+  // (union by product), then treat the server as the source of truth and clear
+  // the guest store. On logout, fall back to the guest store. Persistence for
+  // guests happens in the mutations below, so a logged-in user's items are never
+  // written to the shared guest store (which would leak between accounts).
   useEffect(() => {
     let active = true;
     if (!user) {
@@ -58,7 +58,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const res = await getWishlist();
         if (!active) return;
         setItems(res.items);
-        savePersisted(WISHLIST_KEY, WISHLIST_VERSION, []); // guest list merged in
+        saveGuest([]); // guest list merged into the account
         syncedUser.current = user.id;
       } catch {
         /* server unreachable — keep current items */
@@ -70,13 +70,26 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user]);
 
   const addItem = (product: Product) => {
-    setItems((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]));
-    if (user) addToWishlist(product.id).then((r) => setItems(r.items)).catch(() => undefined);
+    setItems((prev) => {
+      if (prev.some((p) => p.id === product.id)) return prev;
+      const next = [...prev, product];
+      if (!userRef.current) saveGuest(next);
+      return next;
+    });
+    if (userRef.current) {
+      addToWishlist(product.id).then((r) => setItems(r.items)).catch(() => undefined);
+    }
   };
 
   const removeItem = (productId: string) => {
-    setItems((prev) => prev.filter((p) => p.id !== productId));
-    if (user) removeFromWishlist(productId).then((r) => setItems(r.items)).catch(() => undefined);
+    setItems((prev) => {
+      const next = prev.filter((p) => p.id !== productId);
+      if (!userRef.current) saveGuest(next);
+      return next;
+    });
+    if (userRef.current) {
+      removeFromWishlist(productId).then((r) => setItems(r.items)).catch(() => undefined);
+    }
   };
 
   const toggle = (product: Product) => {
@@ -86,7 +99,10 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const isInWishlist = (productId: string) => items.some((p) => p.id === productId);
 
-  const clear = () => setItems([]);
+  const clear = () => {
+    setItems([]);
+    if (!userRef.current) saveGuest([]);
+  };
 
   const count = useMemo(() => items.length, [items]);
 
