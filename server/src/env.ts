@@ -8,6 +8,9 @@ export const env = {
   isProd: process.env.NODE_ENV === 'production',
   // Public origin of this API, used to build local dev image URLs.
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}`,
+  // Public origin of the storefront (frontend), used to build links in emails.
+  // Defaults to the CORS origin (the dev frontend).
+  appUrl: process.env.APP_URL ?? process.env.CORS_ORIGIN ?? 'http://localhost:3000',
 
   // Auth. Secrets MUST be set in production; the dev fallbacks are obvious.
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-only-access-secret-change-me',
@@ -29,5 +32,14 @@ export const env = {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
+
+  // Resend (transactional email). When RESEND_API_KEY is set the real Resend
+  // service is used; otherwise emails are rendered to the console + a local file
+  // (dev fallback, see lib/email/*). The API key is server-side only.
+  // `from` MUST be a domain you've verified in Resend (SPF/DKIM) — see RESEND.md.
+  resend: {
+    apiKey: process.env.RESEND_API_KEY ?? '',
+    from: process.env.EMAIL_FROM ?? 'Siddhatva <onboarding@resend.dev>',
   },
 };

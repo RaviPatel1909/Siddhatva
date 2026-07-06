@@ -3,3 +3,4 @@ dist
 .pgdata
 uploads
 *.log
+.mail
