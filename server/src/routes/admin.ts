@@ -11,6 +11,7 @@ import { orderStatusBody, homeContentSchema } from '../schemas';
 import { HOME_KEY } from '../lib/homeContent';
 import { Prisma } from '@prisma/client';
 import { orderEvents, OrderEvent } from '../lib/events';
+import { shipOrder } from '../lib/orderShipping';
 
 export const adminRouter = Router();
 
@@ -76,6 +77,18 @@ adminRouter.patch(
     if (EVENT_FOR[status]) orderEvents.emit(EVENT_FOR[status], { orderId: updated.id });
 
     res.json(toApiOrder(updated));
+  })
+);
+
+// POST /admin/orders/:id/ship — create the shipment for a PAID order via the
+// ShippingProvider (Shiprocket/mock), persist AWB/label/tracking, advance the
+// order to `shipped`, and emit order.shipped (→ Phase 7 shipping email).
+// Idempotent: re-calling returns the existing shipment without duplicating.
+adminRouter.post(
+  '/orders/:id/ship',
+  asyncHandler(async (req, res) => {
+    const { order, created } = await shipOrder(req.params.id);
+    res.status(created ? 201 : 200).json(toApiOrder(order));
   })
 );
 

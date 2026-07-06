@@ -9,6 +9,7 @@ import {
   PaymentStatus,
   ProductBadge,
   ProductStatus,
+  ShippingStatus,
 } from '../contract';
 import { imageStore } from './imageStore';
 
@@ -120,6 +121,11 @@ export function toApiOrder(o: OrderWithRelations): ApiOrder {
       zip: o.shippingAddress.zip,
       country: o.shippingAddress.country,
     },
+    shippingStatus: o.shippingStatus as ShippingStatus,
+    awb: o.awb ?? undefined,
+    courier: o.courier ?? undefined,
+    trackingUrl: o.trackingUrl ?? undefined,
+    labelUrl: o.labelUrl ?? undefined,
   };
 }
 

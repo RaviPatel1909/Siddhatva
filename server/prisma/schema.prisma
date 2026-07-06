@@ -137,6 +137,16 @@ model Order {
   paymentStatus     String  @default("PENDING") // payment: PENDING | PAID | FAILED
   razorpayOrderId   String?
   razorpayPaymentId String?
+  // Shipping — a NORMALIZED status distinct from fulfillment `status` and
+  // `paymentStatus`: not_shipped | shipment_created | in_transit |
+  // out_for_delivery | delivered | cancelled. The tracking webhook is the source
+  // of truth for it. shipmentId/awb identify the Shiprocket shipment.
+  shippingStatus    String  @default("not_shipped")
+  shipmentId        String?
+  awb               String?
+  courier           String?
+  labelUrl          String?
+  trackingUrl       String?
   subtotal          Float
   shipping          Float
   tax               Float

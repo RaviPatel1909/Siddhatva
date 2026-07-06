@@ -70,6 +70,15 @@ export interface ProductListResponse {
 
 export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
+// Normalized shipping status, distinct from fulfillment `status` and
+// `paymentStatus`. The Shiprocket tracking webhook is its source of truth.
+export type ShippingStatus =
+  | 'not_shipped'
+  | 'shipment_created'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'cancelled';
 
 export interface OrderItem {
   productId: string;
@@ -101,6 +110,13 @@ export interface ApiOrder {
   tax: number;
   total: number;
   shippingAddress: Address;
+  // Shipping/tracking (Phase 8). `shippingStatus` is always present; the rest
+  // exist once a shipment has been created. `labelUrl` is for admin (packing).
+  shippingStatus: ShippingStatus;
+  awb?: string;
+  courier?: string;
+  trackingUrl?: string;
+  labelUrl?: string;
 }
 
 export interface OrderListResponse {

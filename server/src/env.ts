@@ -42,4 +42,17 @@ export const env = {
     apiKey: process.env.RESEND_API_KEY ?? '',
     from: process.env.EMAIL_FROM ?? 'Siddhatva <onboarding@resend.dev>',
   },
+
+  // Shiprocket (logistics). When email + password (or an API token) are set the
+  // real provider is used; otherwise shipments run in mock mode (see
+  // lib/shipping/*). Credentials + webhook token are server-side only. Zero code
+  // change to activate. See SHIPROCKET.md.
+  shiprocket: {
+    email: process.env.SHIPROCKET_EMAIL ?? '',
+    password: process.env.SHIPROCKET_PASSWORD ?? '',
+    channelId: process.env.SHIPROCKET_CHANNEL_ID ?? '',
+    pickupLocation: process.env.SHIPROCKET_PICKUP_LOCATION ?? 'Primary',
+    // Verifies inbound tracking webhooks via the x-api-key header Shiprocket sends.
+    webhookToken: process.env.SHIPROCKET_WEBHOOK_TOKEN ?? '',
+  },
 };
