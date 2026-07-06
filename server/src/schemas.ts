@@ -45,3 +45,15 @@ export type CreateOrderBody = z.infer<typeof createOrderBody>;
 export const wishlistBody = z.object({
   productId: z.string().min(1),
 });
+
+// --- Auth ---
+export const registerBody = z.object({
+  email: z.string().email('Enter a valid email'),
+  name: z.string().min(1, 'Required'),
+  password: z.string().min(8, 'At least 8 characters'),
+});
+
+export const loginBody = z.object({
+  email: z.string().email('Enter a valid email'),
+  password: z.string().min(1, 'Required'),
+});
