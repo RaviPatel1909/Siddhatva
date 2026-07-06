@@ -21,6 +21,7 @@ import { ProfileSettingsPage } from './pages/account/ProfileSettings';
 import { AdminDashboardPage } from './pages/admin/AdminDashboard';
 import { ProductManagementPage } from './pages/admin/ProductManagement';
 import { OrderManagementPage } from './pages/admin/OrderManagement';
+import { HomeContentPage } from './pages/admin/HomeContent';
 
 // Keying the wrapper by pathname remounts the route tree on navigation, which
 // replays the .page-enter fade. Query-string changes keep the same key, so
@@ -54,6 +55,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/products" element={<ProductManagementPage />} />
           <Route path="/admin/orders" element={<OrderManagementPage />} />
+          <Route path="/admin/home" element={<HomeContentPage />} />
         </Route>
       </Routes>
     </div>

@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: 'dashboard' },
   { label: 'Products', href: '/admin/products', icon: 'inventory_2' },
   { label: 'Orders', href: '/admin/orders', icon: 'shopping_cart' },
+  { label: 'Home Content', href: '/admin/home', icon: 'home' },
   { label: 'Customers', href: '#', icon: 'group' },
   { label: 'Analytics', href: '#', icon: 'monitoring' },
 ];
