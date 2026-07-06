@@ -18,7 +18,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "browserslist": {
     "production": [
@@ -33,6 +34,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.2",
     "msw": "^2.14.6",
