@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
-import { useOrders } from '../../context/OrdersContext';
+import { useQuery } from '@tanstack/react-query';
+import { getAdminOrders } from '../../api/admin';
 
 const BARS = [32, 48, 56, 40, 64, 72, 80];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL'];
@@ -18,7 +19,8 @@ const initials = (name: string) =>
 
 export const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { orders } = useOrders();
+  const { data } = useQuery({ queryKey: ['admin', 'orders'], queryFn: getAdminOrders });
+  const orders = data?.items ?? [];
   const recentOrders = orders.slice(0, 4);
 
   return (

@@ -3,25 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { AccountLayout } from '../../components/layout/AccountLayout';
 import { Badge } from '../../components/ui/Badge';
 import { useOrders } from '../../context/OrdersContext';
-import { products } from '../../data/products';
-
-const QUICK_LINKS = [
-  { label: 'Profile', description: 'Manage personal info', icon: 'person', href: '/account/profile' },
-  { label: 'Wishlist', description: `${products.slice(0, 4).length} saved favorites`, icon: 'favorite', href: '/account/wishlist' },
-];
+import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 
 export const AccountOverviewPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { orders } = useOrders();
-  const recentOrder = orders[0]; // most recent order from the single source of truth
-  const wishlistPreview = products.slice(6, 10);
+  const { items: wishlist } = useWishlist();
+  const recentOrder = orders[0]; // most recent order for this user
+  const wishlistPreview = wishlist.slice(0, 4);
+  const firstName = user?.name.split(' ')[0] ?? 'there';
+  const QUICK_LINKS = [
+    { label: 'Profile', description: 'Manage personal info', icon: 'person', href: '/account/profile' },
+    { label: 'Wishlist', description: `${wishlist.length} saved favorites`, icon: 'favorite', href: '/account/wishlist' },
+  ];
 
   return (
     <AccountLayout>
       <div className="mb-xl flex flex-col md:flex-row md:items-end justify-between gap-md">
         <div>
           <h1 className="font-display text-3xl md:text-4xl text-primary">
-            Welcome back, <span className="text-on-secondary-container">Alexander</span>
+            Welcome back, <span className="text-on-secondary-container">{firstName}</span>
           </h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-xs">
             Here&apos;s what&apos;s happening with your account today.
@@ -47,37 +50,49 @@ export const AccountOverviewPage: React.FC = () => {
               View All Orders <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </div>
-          <div className="flex flex-col md:flex-row gap-lg items-start bg-surface p-lg rounded-lg border border-outline-variant/20">
-            <div className="w-24 h-24 bg-surface-container-high rounded-lg overflow-hidden shrink-0">
-              <img src={recentOrder.items[0].image} alt={recentOrder.items[0].name} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 min-w-0 w-full">
-              <div className="flex justify-between items-start gap-md">
-                <div>
-                  <Badge variant={recentOrder.status}>{recentOrder.status}</Badge>
-                  <h4 className="text-lg font-medium text-primary mt-xs">{recentOrder.items[0].name}</h4>
-                  <p className="text-sm text-on-surface-variant">
-                    Order #{recentOrder.id} · {new Date(recentOrder.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
+          {recentOrder ? (
+            <div className="flex flex-col md:flex-row gap-lg items-start bg-surface p-lg rounded-lg border border-outline-variant/20">
+              <div className="w-24 h-24 bg-surface-container-high rounded-lg overflow-hidden shrink-0">
+                <img src={recentOrder.items[0].image} alt={recentOrder.items[0].name} className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 min-w-0 w-full">
+                <div className="flex justify-between items-start gap-md">
+                  <div>
+                    <Badge variant={recentOrder.status}>{recentOrder.status}</Badge>
+                    <h4 className="text-lg font-medium text-primary mt-xs">{recentOrder.items[0].name}</h4>
+                    <p className="text-sm text-on-surface-variant">
+                      Order #{recentOrder.id} · {new Date(recentOrder.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <p className="text-lg font-semibold text-primary shrink-0">${recentOrder.total.toFixed(2)}</p>
                 </div>
-                <p className="text-lg font-semibold text-primary shrink-0">${recentOrder.total.toFixed(2)}</p>
-              </div>
-              <div className="flex gap-sm mt-lg">
-                <button
-                  onClick={() => navigate('/account/orders')}
-                  className="flex-1 md:flex-none border border-primary text-primary px-lg py-sm rounded-lg font-body-md text-sm hover:bg-primary hover:text-on-primary transition-all"
-                >
-                  Track
-                </button>
-                <button
-                  onClick={() => navigate('/account/orders')}
-                  className="flex-1 md:flex-none bg-secondary-container text-on-secondary-container px-lg py-sm rounded-lg font-body-md text-sm hover:bg-surface transition-colors border border-secondary-container"
-                >
-                  Invoice
-                </button>
+                <div className="flex gap-sm mt-lg">
+                  <button
+                    onClick={() => navigate('/account/orders')}
+                    className="flex-1 md:flex-none border border-primary text-primary px-lg py-sm rounded-lg font-body-md text-sm hover:bg-primary hover:text-on-primary transition-all"
+                  >
+                    Track
+                  </button>
+                  <button
+                    onClick={() => navigate('/account/orders')}
+                    className="flex-1 md:flex-none bg-secondary-container text-on-secondary-container px-lg py-sm rounded-lg font-body-md text-sm hover:bg-surface transition-colors border border-secondary-container"
+                  >
+                    Invoice
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-surface p-xl rounded-lg border border-outline-variant/20 text-center">
+              <p className="text-on-surface-variant mb-md">You haven&apos;t placed any orders yet.</p>
+              <button
+                onClick={() => navigate('/shop')}
+                className="bg-primary text-on-primary px-lg py-sm rounded-lg font-body-md text-sm hover:opacity-90 transition-opacity"
+              >
+                Start shopping
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Quick Links */}

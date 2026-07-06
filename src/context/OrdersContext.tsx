@@ -1,12 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Order } from '../types/order';
-import { orders as seedOrders } from '../data/orders';
 import { CartLineItem } from './CartContext';
-import { loadPersisted, savePersisted } from '../lib/persist';
-import { createOrder } from '../api/orders';
-
-const ORDERS_KEY = 'orders';
-const ORDERS_VERSION = 1;
+import { createOrder, getOrders } from '../api/orders';
+import { useAuth } from './AuthContext';
 
 export interface PlaceOrderInput {
   items: CartLineItem[];
@@ -23,21 +19,27 @@ interface OrdersContextValue {
 
 const OrdersContext = createContext<OrdersContextValue | undefined>(undefined);
 
-// Orders are immutable snapshots of what was purchased, so they're persisted in
-// full (not rehydrated from the live catalog).
+// Orders are per-user server data. This context is a small client cache of the
+// authenticated user's orders (for AccountOverview / OrderConfirmed); My Orders
+// reads the same data via its own query.
 export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [orders, setOrders] = useState<Order[]>(
-    () => loadPersisted<Order[] | null>(ORDERS_KEY, ORDERS_VERSION, null) ?? seedOrders
-  );
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    savePersisted(ORDERS_KEY, ORDERS_VERSION, orders);
-  }, [orders]);
+    if (!user) {
+      setOrders([]);
+      return;
+    }
+    let active = true;
+    getOrders()
+      .then((res) => active && setOrders(res.items))
+      .catch(() => active && setOrders([]));
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
-  // Create the order through the API (POST /orders) so it round-trips to the
-  // backend (real server, or MSW in dev). The returned order is the source of
-  // truth for the local context (which AccountOverview / admin read) and is
-  // persisted so those views survive a reload.
   const placeOrder = async (input: PlaceOrderInput): Promise<Order> => {
     const created = await createOrder({
       id: `SID-${Math.floor(10000 + Math.random() * 89999)}`,
@@ -57,9 +59,7 @@ export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       total: input.totals.total,
       shippingAddress: input.shippingAddress,
     });
-    const next = [created, ...orders];
-    setOrders(next);
-    savePersisted(ORDERS_KEY, ORDERS_VERSION, next);
+    setOrders((prev) => [created, ...prev]);
     return created;
   };
 

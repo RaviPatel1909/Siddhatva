@@ -3,7 +3,8 @@ import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
-import { useOrders } from '../../context/OrdersContext';
+import { useQuery } from '@tanstack/react-query';
+import { getAdminOrders } from '../../api/admin';
 
 const PAGE_SIZE = 6;
 
@@ -11,7 +12,8 @@ const initials = (name: string) =>
   name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
 export const OrderManagementPage: React.FC = () => {
-  const { orders } = useOrders();
+  const { data } = useQuery({ queryKey: ['admin', 'orders'], queryFn: getAdminOrders });
+  const orders = data?.items ?? [];
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -78,7 +80,7 @@ export const OrderManagementPage: React.FC = () => {
   }, [selectedOrderId]);
 
   const revenueToday = orders.reduce((sum, order) => sum + order.total, 0);
-  const avgValue = revenueToday / orders.length;
+  const avgValue = orders.length ? revenueToday / orders.length : 0;
   const pendingFulfillment = orders.filter((order) => order.status === 'processing').length;
 
   return (

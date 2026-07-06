@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import { CheckoutLayout } from '../components/layout/CheckoutLayout';
 import { OrderSummaryCard } from '../components/cart/OrderSummaryCard';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
+import { useAuth } from '../context/AuthContext';
 import { queryKeys } from '../api/queryKeys';
 
 type Step = 'information' | 'shipping' | 'payment';
@@ -58,6 +59,7 @@ export const CheckoutShippingPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { items, subtotal, clearCart } = useCart();
   const { placeOrder } = useOrders();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>('information');
 
   const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
@@ -107,6 +109,12 @@ export const CheckoutShippingPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.orders() });
     navigate('/order-confirmed', { state: { orderId: order.id } });
   });
+
+  // Placing an order requires an account (POST /orders is authenticated).
+  // Send guests to login and back; logging in also merges their guest cart.
+  if (!authLoading && !user) {
+    return <Navigate to="/login" replace state={{ from: { pathname: '/checkout' } }} />;
+  }
 
   if (items.length === 0) {
     return (
