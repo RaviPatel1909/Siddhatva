@@ -18,14 +18,49 @@ changes.
   paths below are relative to this base.
 - **Method/format:** all current endpoints are `GET` returning JSON. The client
   sends `Accept: application/json`.
-- **Auth:** none yet. `/orders` and `/wishlist` are conceptually scoped to the
-  signed-in customer; until auth exists they return the single demo customer's
-  data.
+- **Auth:** JWT access token (Bearer) + rotating httpOnly refresh cookie. See
+  [Authentication](#authentication). `/orders` and `/wishlist` are scoped to the
+  authenticated user; `/admin/*` require the `ADMIN` role.
 - **Success:** HTTP `2xx` with the JSON body documented per endpoint.
 - **Errors:** any non-`2xx` returns `{ "message": string }`. The client wraps it
   as `ApiError { status, body }` and throws. Documented error statuses per
   endpoint below; a network failure surfaces client-side as `ApiError` with
   `status: 0` (not a server response).
+
+---
+
+## Authentication
+
+**Token model.** Login/register return a short-lived **access token** (JWT, ~15 min)
+in the JSON body and set a **refresh token** as an `httpOnly`, `secure` (prod),
+`sameSite` cookie scoped to `/api/auth`. Clients send the access token as
+`Authorization: Bearer <token>` on protected requests. When it expires (401),
+the client calls `POST /auth/refresh` (cookie sent automatically) to rotate the
+refresh token and mint a new access token, then retries once.
+
+**Roles.** `User.role` is `CUSTOMER` or `ADMIN`. `requireAuth` → 401 when the
+access token is missing/invalid; `requireAdmin` → 403 when the role is not `ADMIN`.
+
+`PublicUser = { id: string; email: string; name: string; role: 'CUSTOMER' | 'ADMIN' }`
+
+| Endpoint | Body | Success | Notes |
+|----------|------|---------|-------|
+| `POST /auth/register` | `{ email, name, password }` (password ≥ 8) | `201 { user: PublicUser, accessToken }` + refresh cookie | `409` if email taken |
+| `POST /auth/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401` on bad credentials |
+| `POST /auth/refresh` | — (refresh cookie) | `200 { user, accessToken }` + rotated cookie | `401` if missing/expired/reused; reuse revokes the whole token family |
+| `POST /auth/logout` | — (refresh cookie) | `200 { ok: true }`, clears cookie | revokes the presented refresh token |
+| `GET /auth/me` | — (Bearer) | `200 { user }` | `401` if unauthenticated |
+
+Validation errors return `400 { message: "Validation failed", issues: [...] }`.
+
+**Which routes require auth:**
+
+| Route | Requirement |
+|-------|-------------|
+| `GET /products`, `GET /products/:idOrSlug` | public |
+| `GET`/`POST /orders` | authenticated (scoped to the user) |
+| `GET`/`POST`/`DELETE /wishlist` | authenticated (scoped to the user) |
+| `GET /admin/orders`, `GET /admin/stats` | authenticated **+ ADMIN** |
 
 ---
 
