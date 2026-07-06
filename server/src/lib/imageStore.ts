@@ -102,7 +102,8 @@ class LocalImageStore implements ImageStore {
   }
 
   authorizeUpload(): UploadAuthorization {
-    return { mode: 'local', uploadUrl: '/api/admin/upload-dev' };
+    // Relative to the API base (VITE_API_URL) — the client prepends that.
+    return { mode: 'local', uploadUrl: '/admin/upload-dev' };
   }
 
   // Local-only: the dev upload endpoint hands bytes here (Cloudinary uploads
