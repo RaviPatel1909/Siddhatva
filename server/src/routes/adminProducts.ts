@@ -4,7 +4,7 @@ import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { slugify } from '../lib/slug';
 import { imageStore } from '../lib/imageStore';
-import { productInclude, toApiProduct } from '../lib/mappers';
+import { productInclude, toAdminProduct, toApiProduct } from '../lib/mappers';
 import {
   bulkIdsBody,
   bulkStatusBody,
@@ -176,6 +176,19 @@ adminProductsRouter.patch(
     }
 
     await returnProduct(res, id);
+  })
+);
+
+// GET /admin/products/:id — full editable product (variant matrix + raw images).
+adminProductsRouter.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const product = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      include: productInclude,
+    });
+    if (!product) throw new HttpError(404, 'Product not found');
+    res.json(toAdminProduct(product));
   })
 );
 

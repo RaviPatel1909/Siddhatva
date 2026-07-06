@@ -63,6 +63,35 @@ export function toApiProduct(p: ProductWithRelations): ApiProduct {
   };
 }
 
+// Full editable product for the admin editor: includes the per-combination
+// variant stock matrix and raw image url+publicId (not delivery-transformed).
+export function toAdminProduct(p: ProductWithRelations) {
+  const colorMap = new Map<string, Color>();
+  const sizes: string[] = [];
+  for (const v of p.variants) {
+    if (!colorMap.has(v.color.id)) {
+      colorMap.set(v.color.id, { id: v.color.id, name: v.color.name, hex: v.color.hex });
+    }
+    if (!sizes.includes(v.size)) sizes.push(v.size);
+  }
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    description: p.description,
+    category: p.category.name,
+    variant: p.variantLabel ?? undefined,
+    sku: p.sku ?? undefined,
+    badge: (p.badge as ProductBadge | null) ?? undefined,
+    status: (p.status as ProductStatus | null) ?? undefined,
+    stock: p.stock ?? undefined,
+    colors: Array.from(colorMap.values()),
+    sizes,
+    variants: p.variants.map((v) => ({ colorId: v.colorId, size: v.size, stock: v.stock })),
+    images: p.images.map((img) => ({ url: img.src, publicId: img.publicId, alt: img.alt })),
+  };
+}
+
 export function toApiOrder(o: OrderWithRelations): ApiOrder {
   return {
     id: o.id,
