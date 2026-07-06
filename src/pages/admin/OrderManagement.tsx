@@ -3,8 +3,22 @@ import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
-import { useQuery } from '@tanstack/react-query';
-import { getAdminOrders } from '../../api/admin';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAdminOrders, updateOrderStatus, OrderStatus } from '../../api/admin';
+
+// Allowed transitions mirror the server (delivered/cancelled are terminal).
+const NEXT_ACTIONS: Record<string, { label: string; status: OrderStatus; danger?: boolean }[]> = {
+  processing: [
+    { label: 'Mark as Shipped', status: 'shipped' },
+    { label: 'Cancel Order', status: 'cancelled', danger: true },
+  ],
+  shipped: [
+    { label: 'Mark as Delivered', status: 'delivered' },
+    { label: 'Cancel Order', status: 'cancelled', danger: true },
+  ],
+  delivered: [],
+  cancelled: [],
+};
 
 const PAGE_SIZE = 6;
 
@@ -12,8 +26,20 @@ const initials = (name: string) =>
   name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
 export const OrderManagementPage: React.FC = () => {
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['admin', 'orders'], queryFn: getAdminOrders });
   const orders = data?.items ?? [];
+  const [updating, setUpdating] = useState(false);
+  const changeStatus = async (id: string, status: OrderStatus) => {
+    setUpdating(true);
+    try {
+      await updateOrderStatus(id, status);
+      // Refetch so the drawer badge and the table both reflect the change.
+      await qc.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    } finally {
+      setUpdating(false);
+    }
+  };
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -274,9 +300,31 @@ export const OrderManagementPage: React.FC = () => {
               <div className="flex justify-between font-semibold pt-xs border-t border-outline-variant/20"><span>Total</span><span className="text-primary">${selectedOrder.total.toFixed(2)}</span></div>
             </div>
 
-            <button className="w-full bg-primary text-on-primary py-sm rounded-lg font-label-sm text-sm uppercase tracking-widest hover:opacity-90 transition-opacity active:scale-95">
-              Confirm Shipment
-            </button>
+            <div className="space-y-sm">
+              <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline">
+                Update Status
+              </h4>
+              {NEXT_ACTIONS[selectedOrder.status].length === 0 ? (
+                <p className="text-sm text-on-surface-variant">
+                  This order is {selectedOrder.status} — no further changes.
+                </p>
+              ) : (
+                NEXT_ACTIONS[selectedOrder.status].map((action) => (
+                  <button
+                    key={action.status}
+                    onClick={() => changeStatus(selectedOrder.id, action.status)}
+                    disabled={updating}
+                    className={`w-full py-sm rounded-lg font-label-sm text-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 ${
+                      action.danger
+                        ? 'border border-error text-error hover:bg-error/5'
+                        : 'bg-primary text-on-primary hover:opacity-90'
+                    }`}
+                  >
+                    {action.label}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
