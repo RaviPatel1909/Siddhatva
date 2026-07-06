@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
 
 // ============================================================================
 // 2. NAVIGATION BAR (Sticky, Glassmorphic)
@@ -24,7 +25,16 @@ const NAV_LINKS: { label: string; href: string }[] = [
 export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
   const { itemCount } = useCart();
   const { count: wishlistCount } = useWishlist();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = () => setMenuOpen(false);
+  const handleLogout = async () => {
+    closeMenu();
+    await logout();
+    navigate('/');
+  };
 
   return (
     <nav
@@ -106,14 +116,73 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
               </span>
             )}
           </button>
-          <button
-            onClick={() => navigate('/account')}
-            className="material-symbols-outlined text-on-background
-                      hover:text-primary transition-colors"
-            aria-label="Account"
-          >
-            person
-          </button>
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="material-symbols-outlined text-primary hover:opacity-80 transition-opacity"
+                aria-label="Account menu"
+                aria-expanded={menuOpen}
+              >
+                account_circle
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={closeMenu} aria-hidden="true" />
+                  <div className="absolute right-0 mt-sm w-56 z-50 chrome-surface border border-border rounded-lg shadow-lg py-sm">
+                    <div className="px-md py-sm border-b border-border/60">
+                      <p className="text-sm font-semibold text-on-surface truncate">{user.name}</p>
+                      <p className="text-xs text-on-surface-variant truncate">{user.email}</p>
+                    </div>
+                    {[
+                      { label: 'Account', to: '/account' },
+                      { label: 'Orders', to: '/account/orders' },
+                      { label: 'Wishlist', to: '/account/wishlist' },
+                      { label: 'Profile', to: '/account/profile' },
+                    ].map((item) => (
+                      <button
+                        key={item.to}
+                        onClick={() => {
+                          closeMenu();
+                          navigate(item.to);
+                        }}
+                        className="w-full text-left px-md py-sm text-sm text-on-surface hover:bg-primary/5 transition-colors"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                    {user.role === 'ADMIN' && (
+                      <button
+                        onClick={() => {
+                          closeMenu();
+                          navigate('/admin');
+                        }}
+                        className="w-full text-left px-md py-sm text-sm text-primary font-semibold hover:bg-primary/5 transition-colors"
+                      >
+                        Admin Dashboard
+                      </button>
+                    )}
+                    <div className="border-t border-border/60 mt-sm pt-sm">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-md py-sm text-sm text-danger hover:bg-danger/5 transition-colors"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate('/login')}
+              className="material-symbols-outlined text-on-background hover:text-primary transition-colors"
+              aria-label="Sign in"
+            >
+              person
+            </button>
+          )}
         </div>
       </div>
     </nav>
