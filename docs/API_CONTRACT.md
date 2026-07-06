@@ -331,6 +331,26 @@ home page never renders blank.
 
 ---
 
+## Payments (Razorpay, test mode)
+
+Orders carry `paymentStatus: 'PENDING' | 'PAID' | 'FAILED'` (distinct from the
+fulfillment `status`). See `PAYMENTS.md` for the runbook. The gateway runs in a
+mock mode when `RAZORPAY_*` is unset — same signature paths, no account needed.
+
+| Endpoint | Auth | Body | Success | Notes |
+|----------|------|------|---------|-------|
+| `POST /orders/:id/pay-init` | user | — | `200 { razorpayOrderId, keyId, amount, currency, mode }` | creates a gateway order (`amount = total×100` paise, INR); stores `razorpayOrderId` |
+| `POST /orders/verify` | user | `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }` | `200 Order` | HMAC-SHA256(`order_id\|payment_id`, key_secret) via timingSafeEqual → marks PAID (idempotent); `400` on mismatch |
+| `GET /orders/:id` | user | — | `200 Order` | reflects the server-verified payment state |
+| `POST /webhooks/razorpay` | signature | raw body | `200 { received: true }` | **source of truth**; HMAC-SHA256(raw_body, webhook_secret) vs `x-razorpay-signature`; handles `payment.captured`/`payment.failed` idempotently; `400` on bad signature. Mounted with `express.raw` **before** `express.json`. |
+
+**Order lifecycle events** (internal pub/sub; subscribers log for now, Phases 7-9
+add email/WhatsApp/logistics): `order.placed` (on create), `order.paid` (verify +
+webhook, once), `order.shipped` / `order.delivered` / `order.cancelled` (admin
+status transitions).
+
+---
+
 ## Admin endpoints
 
 All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
