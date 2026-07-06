@@ -57,7 +57,7 @@ Validation errors return `400 { message: "Validation failed", issues: [...] }`.
 
 | Route | Requirement |
 |-------|-------------|
-| `GET /products`, `GET /products/:idOrSlug` | public |
+| `GET /products`, `GET /products/:idOrSlug`, `GET /site/home` | public |
 | `GET`/`POST /orders` | authenticated (scoped to the user) |
 | `GET`/`POST`/`DELETE /wishlist` | authenticated (scoped to the user) |
 | `/admin/*` (orders, stats, products CRUD, uploads, order status) | authenticated **+ ADMIN** |
@@ -306,10 +306,35 @@ are part of the contract but not yet consumed by the UI.)
 
 ---
 
+## Site content
+
+Fixed-slot home page content (not a page builder).
+
+| Endpoint | Body | Success | Notes |
+|----------|------|---------|-------|
+| `GET /site/home` | — | `200 HomeContent` | public; returns stored content or the default (never empty) |
+| `PATCH /admin/site/home` | `HomeContent` | `200 HomeContent` | ADMIN; full replace, Zod-validated |
+
+```ts
+interface HomeContent {
+  hero: { image; headline; subheadline; primaryCtaLabel; primaryCtaHref; secondaryCtaLabel; secondaryCtaHref };
+  philosophy: { image; heading; body };
+  collectionCards: { image; label; href }[]; // exactly 3
+  newsletter: { heading; subtext };
+}
+```
+
+Images are uploaded through the same image store as products (`GET
+/admin/upload-signature` → Cloudinary direct or local dev). The client keeps a
+static copy of the default content and renders it if this endpoint fails, so the
+home page never renders blank.
+
+---
+
 ## Admin endpoints
 
 All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
-(401 unauthenticated, 403 for non-admins).
+(401 unauthenticated, 403 for non-admins). Also `PATCH /admin/site/home` (above).
 
 | Endpoint | Body | Success | Notes |
 |----------|------|---------|-------|

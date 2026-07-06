@@ -7,7 +7,9 @@ import { orderInclude, toApiOrder } from '../lib/mappers';
 import { OrderListResponse } from '../contract';
 import { imageStore, LocalImageStore } from '../lib/imageStore';
 import { adminProductsRouter } from './adminProducts';
-import { orderStatusBody } from '../schemas';
+import { orderStatusBody, homeContentSchema } from '../schemas';
+import { HOME_KEY } from '../lib/homeContent';
+import { Prisma } from '@prisma/client';
 
 export const adminRouter = Router();
 
@@ -64,6 +66,20 @@ adminRouter.patch(
       include: orderInclude,
     });
     res.json(toApiOrder(updated));
+  })
+);
+
+// PATCH /admin/site/home — replace the home content (fixed slots).
+adminRouter.patch(
+  '/site/home',
+  asyncHandler(async (req, res) => {
+    const content = homeContentSchema.parse(req.body);
+    await prisma.siteContent.upsert({
+      where: { key: HOME_KEY },
+      create: { key: HOME_KEY, content: content as Prisma.InputJsonValue },
+      update: { content: content as Prisma.InputJsonValue },
+    });
+    res.json(content);
   })
 );
 

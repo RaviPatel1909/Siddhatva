@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { products } from '../../src/data/products';
 import { orders as seedOrders } from '../../src/data/orders';
 import { slugify } from '../src/lib/slug';
+import { DEFAULT_HOME_CONTENT, HOME_KEY } from '../src/lib/homeContent';
 
 const prisma = new PrismaClient();
 
@@ -29,6 +30,7 @@ function buildVariants(p: SeedProduct) {
 
 async function main() {
   // Reset (respecting FK order).
+  await prisma.siteContent.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.review.deleteMany();
   await prisma.wishlistItem.deleteMany();
@@ -140,9 +142,15 @@ async function main() {
     await prisma.wishlistItem.create({ data: { userId: user.id, productId } });
   }
 
+  // Home page content — seeded from the current hardcoded values so the DB
+  // default reproduces today's home page exactly.
+  await prisma.siteContent.create({
+    data: { key: HOME_KEY, content: DEFAULT_HOME_CONTENT as unknown as object },
+  });
+
   // eslint-disable-next-line no-console
   console.log(
-    `Seed complete — ${products.length} products, ${seedOrders.length} orders, 3 wishlist items.`
+    `Seed complete — ${products.length} products, ${seedOrders.length} orders, 3 wishlist items, home content.`
   );
 }
 

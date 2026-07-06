@@ -168,6 +168,14 @@ model WishlistItem {
   @@unique([userId, productId])
 }
 
+// Editable site content in fixed slots (not a page builder). One row per page
+// region set; `content` is a validated JSON blob read/written atomically.
+model SiteContent {
+  key       String   @id // e.g. "home"
+  content   Json
+  updatedAt DateTime @updatedAt
+}
+
 model Review {
   id        String   @id @default(cuid())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)

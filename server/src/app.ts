@@ -10,6 +10,7 @@ import { productsRouter } from './routes/products';
 import { ordersRouter } from './routes/orders';
 import { wishlistRouter } from './routes/wishlist';
 import { adminRouter } from './routes/admin';
+import { siteRouter } from './routes/site';
 
 export function createApp() {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp() {
 
   // Contract routes (docs/API_CONTRACT.md), mounted under /api.
   app.use('/api/auth', authRouter);
+  app.use('/api/site', siteRouter);
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/wishlist', wishlistRouter);

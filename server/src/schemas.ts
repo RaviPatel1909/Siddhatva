@@ -106,3 +106,28 @@ export const bulkStatusBody = z.object({
 export const orderStatusBody = z.object({
   status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
 });
+
+// --- Site content (home) — full-replace of the fixed slots ---
+export const homeContentSchema = z.object({
+  hero: z.object({
+    image: z.string(),
+    headline: z.string().min(1),
+    subheadline: z.string(),
+    primaryCtaLabel: z.string(),
+    primaryCtaHref: z.string(),
+    secondaryCtaLabel: z.string(),
+    secondaryCtaHref: z.string(),
+  }),
+  philosophy: z.object({
+    image: z.string(),
+    heading: z.string().min(1),
+    body: z.string(),
+  }),
+  collectionCards: z
+    .array(z.object({ image: z.string(), label: z.string(), href: z.string() }))
+    .length(3),
+  newsletter: z.object({
+    heading: z.string().min(1),
+    subtext: z.string(),
+  }),
+});
