@@ -6,6 +6,7 @@ import {
   Color,
   ColorFacet,
   OrderStatus,
+  PaymentStatus,
   ProductBadge,
   ProductStatus,
 } from '../contract';
@@ -98,6 +99,7 @@ export function toApiOrder(o: OrderWithRelations): ApiOrder {
     customerName: o.customerName,
     date: o.date,
     status: o.status as OrderStatus,
+    paymentStatus: o.paymentStatus as PaymentStatus,
     items: o.items.map((it) => ({
       productId: it.productId,
       name: it.name,

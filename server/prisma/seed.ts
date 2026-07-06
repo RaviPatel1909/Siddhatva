@@ -125,6 +125,7 @@ async function main() {
         customerName: o.customerName,
         date: o.date,
         status: o.status,
+        paymentStatus: 'PAID', // historical orders were paid
         subtotal: o.subtotal,
         shipping: o.shipping,
         tax: o.tax,

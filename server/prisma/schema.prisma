@@ -133,7 +133,10 @@ model Order {
   userId            String
   customerName      String
   date              String // "YYYY-MM-DD"
-  status            String // processing | shipped | delivered | cancelled
+  status            String // fulfillment: processing | shipped | delivered | cancelled
+  paymentStatus     String  @default("PENDING") // payment: PENDING | PAID | FAILED
+  razorpayOrderId   String?
+  razorpayPaymentId String?
   subtotal          Float
   shipping          Float
   tax               Float

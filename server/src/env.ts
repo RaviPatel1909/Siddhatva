@@ -21,4 +21,13 @@ export const env = {
     apiKey: process.env.CLOUDINARY_API_KEY ?? '',
     apiSecret: process.env.CLOUDINARY_API_SECRET ?? '',
   },
+
+  // Razorpay (test mode). When key id + secret are set the real gateway is used;
+  // otherwise payments run in mock mode (see lib/payments.ts). Only keyId is ever
+  // sent to the browser.
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID ?? '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
 };
