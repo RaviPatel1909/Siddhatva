@@ -57,3 +57,52 @@ export const loginBody = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(1, 'Required'),
 });
+
+// --- Admin product CRUD ---
+const productBadge = z.enum(['new', 'limited', 'sold-out']);
+const productStatus = z.enum(['active', 'draft', 'out-of-stock']);
+
+const colorInput = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  hex: z.string().min(1),
+});
+const variantInput = z.object({
+  colorId: z.string().min(1),
+  size: z.string().min(1),
+  stock: z.number().int().min(0),
+});
+// Images arrive already uploaded (Cloudinary/local); [0] is the primary.
+const imageInput = z.object({
+  url: z.string().min(1),
+  publicId: z.string().nullable().optional(),
+  alt: z.string().optional(),
+});
+
+export const createProductBody = z.object({
+  name: z.string().min(1),
+  price: z.number().int().min(0),
+  description: z.string().default(''),
+  category: z.string().min(1),
+  variant: z.string().optional(),
+  sku: z.string().optional(),
+  badge: productBadge.nullable().optional(),
+  status: productStatus.nullable().optional(),
+  stock: z.number().int().min(0).optional(),
+  colors: z.array(colorInput).min(1),
+  sizes: z.array(z.string().min(1)).min(1),
+  variants: z.array(variantInput),
+  images: z.array(imageInput),
+});
+export const updateProductBody = createProductBody.partial();
+
+export const bulkIdsBody = z.object({ ids: z.array(z.string().min(1)).min(1) });
+export const bulkStatusBody = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+  status: productStatus,
+});
+
+// --- Admin order status ---
+export const orderStatusBody = z.object({
+  status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
+});
