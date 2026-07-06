@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckoutLayout } from '../components/layout/CheckoutLayout';
 import { useOrders } from '../context/OrdersContext';
 import { getOrder } from '../api/orders';
+import { trackPurchase } from '../lib/analytics';
 
 const CONFETTI_CLASSES = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-primary-container'];
 
@@ -21,6 +22,28 @@ export const OrderConfirmedPage: React.FC = () => {
     enabled: !!orderId,
   });
   const order = fetched ?? (orderId ? getOrderById(orderId) : undefined) ?? orders[0];
+
+  // GA4 purchase — fire once per confirmed order. transaction_id dedups within
+  // GA4; the sessionStorage guard prevents a refetch/remount re-firing locally.
+  useEffect(() => {
+    if (!order || order.paymentStatus !== 'PAID') return;
+    const key = `ga4_purchase_${order.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    trackPurchase({
+      transactionId: order.id,
+      value: order.total,
+      tax: order.tax,
+      shipping: order.shipping,
+      items: order.items.map((it) => ({
+        item_id: it.productId,
+        item_name: it.name,
+        item_variant: it.variant,
+        price: it.price,
+        quantity: it.quantity,
+      })),
+    });
+  }, [order?.id, order?.paymentStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [confetti] = useState(() =>
     Array.from({ length: 28 }, (_, i) => ({

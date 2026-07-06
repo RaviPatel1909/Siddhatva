@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,7 @@ import { useOrders } from '../context/OrdersContext';
 import { useAuth } from '../context/AuthContext';
 import { queryKeys } from '../api/queryKeys';
 import { collectPayment, payInit, verifyPayment } from '../api/payments';
+import { trackBeginCheckout } from '../lib/analytics';
 
 type Step = 'information' | 'shipping' | 'payment';
 const STEP_LABELS = ['Cart', 'Information', 'Shipping', 'Payment'];
@@ -57,6 +58,24 @@ export const CheckoutShippingPage: React.FC = () => {
   const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
+
+  // GA4 begin_checkout — fire once when the checkout opens with items in the bag.
+  const beganCheckout = useRef(false);
+  useEffect(() => {
+    if (beganCheckout.current || items.length === 0) return;
+    beganCheckout.current = true;
+    trackBeginCheckout(
+      items.map((it) => ({
+        item_id: it.product.id,
+        item_name: it.product.name,
+        item_category: it.product.category,
+        item_variant: `${it.color.name} / ${it.size}`,
+        price: it.product.price,
+        quantity: it.quantity,
+      })),
+      total
+    );
+  }, [items, total]);
 
   const {
     register,

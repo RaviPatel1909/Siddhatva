@@ -2,6 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { initAnalytics } from './lib/analytics';
+
+// Initialize GA4 (no-op unless VITE_GA4_ID is set — dev-safe, no console noise).
+initAnalytics();
 
 // Start the MSW mock backend in dev before the app renders, so the first
 // queries are already intercepted. It runs only when the API is the in-app mock

@@ -3,6 +3,7 @@ import { Product, Color } from '../types/product';
 import { getProductById } from '../data/products';
 import { loadPersisted, savePersisted } from '../lib/persist';
 import { useAuth } from './AuthContext';
+import { trackAddToCart } from '../lib/analytics';
 
 export interface CartLineItem {
   id: string;
@@ -97,7 +98,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return next;
     });
 
-  const addItem = (product: Product, color: Color, size: string, quantity: number = 1) =>
+  const addItem = (product: Product, color: Color, size: string, quantity: number = 1) => {
+    // Analytics side-effect lives here (once per user action), not inside the
+    // commit updater — StrictMode double-invokes updaters, which would double-fire.
+    trackAddToCart({
+      item_id: product.id,
+      item_name: product.name,
+      item_category: product.category,
+      item_variant: `${color.name} / ${size}`,
+      price: product.price,
+      quantity,
+    });
     commit((prev) => {
       const existing = prev.find(
         (item) => item.product.id === product.id && item.color.id === color.id && item.size === size
@@ -109,6 +120,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return [...prev, { id: `${product.id}-${color.id}-${size}-${Date.now()}`, product, color, size, quantity }];
     });
+  };
 
   const removeItem = (lineId: string) => commit((prev) => prev.filter((item) => item.id !== lineId));
 

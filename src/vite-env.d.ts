@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   /** Force the MSW mock even when VITE_API_URL is a real server (offline dev). */
   readonly VITE_USE_MSW?: string;
+  /** GA4 measurement ID (e.g. G-XXXXXXXXXX). Unset → analytics disabled (no-op). */
+  readonly VITE_GA4_ID?: string;
 }
 
 interface ImportMeta {

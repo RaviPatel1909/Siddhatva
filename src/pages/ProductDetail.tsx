@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
@@ -14,6 +14,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { getProduct, getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
 import { ApiError } from '../api/client';
+import { trackViewItem } from '../lib/analytics';
 
 const DetailSkeleton = () => (
   <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
@@ -49,6 +50,18 @@ export const ProductDetailPage: React.FC = () => {
     queryFn: () => getProduct(productId),
     enabled: Boolean(productId),
   });
+
+  // GA4 view_item once the product resolves (id guards re-fires on refetch).
+  useEffect(() => {
+    if (!product) return;
+    trackViewItem({
+      item_id: product.id,
+      item_name: product.name,
+      item_category: product.category,
+      price: product.price,
+      quantity: 1,
+    });
+  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: relatedData } = useQuery({
     queryKey: queryKeys.products({ category: product?.category, pageSize: 5 }),
