@@ -97,6 +97,7 @@ model User {
   reviews       Review[]
   addresses     Address[]
   refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   createdAt     DateTime       @default(now())
 }
 
@@ -109,6 +110,20 @@ model RefreshToken {
   userId    String
   expiresAt DateTime
   revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// One-time password reset token. Only the sha256 HASH of the raw token is
+// stored (never the raw token). Short-lived (expiresAt) and single-use (usedAt).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId])

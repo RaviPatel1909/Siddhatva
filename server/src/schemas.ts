@@ -58,6 +58,16 @@ export const loginBody = z.object({
   password: z.string().min(1, 'Required'),
 });
 
+// Password reset. `newPassword` reuses the register policy (min 8) so the reset
+// path can't set a weaker password than signup allows.
+export const forgotPasswordBody = z.object({
+  email: z.string().email('Enter a valid email'),
+});
+export const resetPasswordBody = z.object({
+  token: z.string().min(1, 'Missing token'),
+  newPassword: z.string().min(8, 'At least 8 characters'),
+});
+
 // --- Admin product CRUD ---
 const productBadge = z.enum(['new', 'limited', 'sold-out']);
 const productStatus = z.enum(['active', 'draft', 'out-of-stock']);

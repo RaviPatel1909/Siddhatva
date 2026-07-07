@@ -2,7 +2,8 @@ import { Response, Router } from 'express';
 import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { requireAuth } from '../middleware/auth';
-import { loginBody, registerBody } from '../schemas';
+import { rateLimit } from '../middleware/rateLimit';
+import { forgotPasswordBody, loginBody, registerBody, resetPasswordBody } from '../schemas';
 import { hashPassword, verifyPassword } from '../lib/password';
 import {
   generateRefreshToken,
@@ -11,6 +12,14 @@ import {
   Role,
   signAccessToken,
 } from '../lib/tokens';
+import {
+  createPasswordResetToken,
+  peekDevResetToken,
+  resetLink,
+  RESET_TTL_MINUTES,
+} from '../lib/passwordReset';
+import { emailService } from '../lib/email/service';
+import { renderPasswordReset } from '../emails/render';
 import { env } from '../env';
 
 export const authRouter = Router();
@@ -137,6 +146,74 @@ authRouter.post(
     }
     clearRefreshCookie(res);
     res.json({ ok: true });
+  })
+);
+
+// POST /auth/forgot-password — start a reset. ALWAYS returns the same success
+// response whether or not the email exists (no account enumeration). Rate-limited.
+authRouter.post(
+  '/forgot-password',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 5, name: 'forgot-password' }),
+  asyncHandler(async (req, res) => {
+    const { email } = forgotPasswordBody.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      try {
+        const raw = await createPasswordResetToken(user.id, user.email);
+        const rendered = await renderPasswordReset({
+          name: user.name,
+          resetUrl: resetLink(raw),
+          expiresInMinutes: RESET_TTL_MINUTES,
+        });
+        await emailService.send({ to: user.email, email: rendered });
+      } catch (err) {
+        // Never surface a failure to the caller (would leak existence/timing).
+        // eslint-disable-next-line no-console
+        console.error('[auth] failed to send password reset email', err);
+      }
+    }
+    res.json({ ok: true, message: 'If an account exists for that email, a reset link has been sent.' });
+  })
+);
+
+// POST /auth/reset-password — validate a single-use token and set the new
+// password, then REVOKE all refresh tokens (force re-login everywhere).
+authRouter.post(
+  '/reset-password',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10, name: 'reset-password' }),
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = resetPasswordBody.parse(req.body);
+    const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new HttpError(400, 'This reset link is invalid or has expired');
+    }
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: record.userId }, data: { password: passwordHash } }),
+      prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+      // Reuse the Phase 4 revocation path: kill every active refresh token so all
+      // existing sessions are logged out after a reset.
+      prisma.refreshToken.updateMany({
+        where: { userId: record.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+    clearRefreshCookie(res);
+    res.json({ ok: true });
+  })
+);
+
+// POST /auth/reset-token-dev — DEV ONLY (mock hook, like pay-mock). Returns the
+// raw reset token last issued for an email so the flow is testable without
+// reading the dev mailbox. 404 in production.
+authRouter.post(
+  '/reset-token-dev',
+  asyncHandler(async (req, res) => {
+    if (env.isProd) throw new HttpError(404, 'Not found');
+    const { email } = forgotPasswordBody.parse(req.body);
+    const token = peekDevResetToken(email);
+    if (!token) throw new HttpError(404, 'No reset token issued');
+    res.json({ token });
   })
 );
 
