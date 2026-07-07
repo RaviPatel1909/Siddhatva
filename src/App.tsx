@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
@@ -6,25 +7,34 @@ import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { OrdersProvider } from './context/OrdersContext';
 import { ScrollToTop } from './components/shared/ScrollToTop';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
+import { Loading } from './components/shared/Loading';
 import { ProtectedRoute, AdminRoute } from './components/auth/RouteGuards';
 import { HomePage } from './pages/Home';
-import { ShopAllPage } from './pages/ShopAll';
-import { ProductDetailPage } from './pages/ProductDetail';
-import { ShoppingBagPage } from './pages/ShoppingBag';
-import { CheckoutShippingPage } from './pages/CheckoutShipping';
-import { OrderConfirmedPage } from './pages/OrderConfirmed';
-import { LoginPage } from './pages/Login';
-import { RegisterPage } from './pages/Register';
-import { ForgotPasswordPage } from './pages/ForgotPassword';
-import { ResetPasswordPage } from './pages/ResetPassword';
-import { AccountOverviewPage } from './pages/account/AccountOverview';
-import { MyOrdersPage } from './pages/account/MyOrders';
-import { MyWishlistPage } from './pages/account/MyWishlist';
-import { ProfileSettingsPage } from './pages/account/ProfileSettings';
-import { AdminDashboardPage } from './pages/admin/AdminDashboard';
-import { ProductManagementPage } from './pages/admin/ProductManagement';
-import { OrderManagementPage } from './pages/admin/OrderManagement';
-import { HomeContentPage } from './pages/admin/HomeContent';
+
+// Route pages are code-split (lazy) so the initial bundle stays small; the
+// <Suspense> fallback below shows the design-system <Loading> while a chunk
+// resolves. Home stays eager — it's the landing page (fast first paint).
+const named = <T,>(loader: () => Promise<Record<string, T>>, key: string) =>
+  lazy(() => loader().then((m) => ({ default: m[key] as ComponentType })));
+
+const ShopAllPage = named(() => import('./pages/ShopAll'), 'ShopAllPage');
+const ProductDetailPage = named(() => import('./pages/ProductDetail'), 'ProductDetailPage');
+const ShoppingBagPage = named(() => import('./pages/ShoppingBag'), 'ShoppingBagPage');
+const CheckoutShippingPage = named(() => import('./pages/CheckoutShipping'), 'CheckoutShippingPage');
+const OrderConfirmedPage = named(() => import('./pages/OrderConfirmed'), 'OrderConfirmedPage');
+const LoginPage = named(() => import('./pages/Login'), 'LoginPage');
+const RegisterPage = named(() => import('./pages/Register'), 'RegisterPage');
+const ForgotPasswordPage = named(() => import('./pages/ForgotPassword'), 'ForgotPasswordPage');
+const ResetPasswordPage = named(() => import('./pages/ResetPassword'), 'ResetPasswordPage');
+const AccountOverviewPage = named(() => import('./pages/account/AccountOverview'), 'AccountOverviewPage');
+const MyOrdersPage = named(() => import('./pages/account/MyOrders'), 'MyOrdersPage');
+const MyWishlistPage = named(() => import('./pages/account/MyWishlist'), 'MyWishlistPage');
+const ProfileSettingsPage = named(() => import('./pages/account/ProfileSettings'), 'ProfileSettingsPage');
+const AdminDashboardPage = named(() => import('./pages/admin/AdminDashboard'), 'AdminDashboardPage');
+const ProductManagementPage = named(() => import('./pages/admin/ProductManagement'), 'ProductManagementPage');
+const OrderManagementPage = named(() => import('./pages/admin/OrderManagement'), 'OrderManagementPage');
+const HomeContentPage = named(() => import('./pages/admin/HomeContent'), 'HomeContentPage');
 
 // Keying the wrapper by pathname remounts the route tree on navigation, which
 // replays the .page-enter fade. Query-string changes keep the same key, so
@@ -34,7 +44,12 @@ const AnimatedRoutes = () => {
 
   return (
     <div key={location.pathname} className="page-enter">
-      <Routes location={location}>
+      {/* Per-route boundaries (reset on navigation via the pathname key): render
+          crashes fall back to the design-system error state, and lazy chunks +
+          their data show the <Loading> state — never a blank screen. */}
+      <ErrorBoundary>
+        <Suspense fallback={<Loading />}>
+          <Routes location={location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopAllPage />} />
         <Route path="/shop/:category" element={<ShopAllPage />} />
@@ -62,7 +77,9 @@ const AnimatedRoutes = () => {
           <Route path="/admin/orders" element={<OrderManagementPage />} />
           <Route path="/admin/home" element={<HomeContentPage />} />
         </Route>
-      </Routes>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 };
