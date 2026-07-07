@@ -18,10 +18,13 @@
 
 # misc
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+
+# Env: never commit real secrets — only .env.example is tracked. (VITE_* values
+# are baked into the client bundle and are public, but keep the file untracked
+# so per-environment values don't get committed.)
+.env
+.env.*
+!.env.example
 
 npm-debug.log*
 yarn-debug.log*

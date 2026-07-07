@@ -4,3 +4,8 @@ dist
 uploads
 *.log
 .mail
+
+# Env: never commit real secrets — only .env.example is tracked.
+.env
+.env.*
+!.env.example
