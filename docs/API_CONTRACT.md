@@ -21,6 +21,10 @@ changes.
 - **Auth:** JWT access token (Bearer) + rotating httpOnly refresh cookie. See
   [Authentication](#authentication). `/orders` and `/wishlist` are scoped to the
   authenticated user; `/admin/*` require the `ADMIN` role.
+- **Money:** all amounts are **INR** in **whole rupees** (product `price` and order
+  `subtotal`/`shipping`/`tax`/`total`). Checkout rounds tax so totals stay integer;
+  the displayed ₹ total therefore equals the Razorpay charge (`amount = total×100`
+  paise). The frontend renders every amount via `formatPrice` (₹, Indian grouping).
 - **Success:** HTTP `2xx` with the JSON body documented per endpoint.
 - **Errors:** any non-`2xx` returns `{ "message": string }`. The client wraps it
   as `ApiError { status, body }` and throws. Documented error statuses per
@@ -90,7 +94,7 @@ interface ApiProduct {
   id: string;              // stable catalog id, e.g. "7"
   slug: string;            // derived from name (see "Slug generation")
   name: string;
-  price: number;           // USD, major units (e.g. 1250 = $1,250.00)
+  price: number;           // INR, whole rupees (e.g. 6490 = ₹6,490)
   description: string;
   images: ProductImage[];  // at least one; images[0] is primary
   colors: Color[];         // at least one

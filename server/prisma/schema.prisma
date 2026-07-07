@@ -1,5 +1,6 @@
 // Siddhatva schema. Field names + representations match docs/API_CONTRACT.md:
-// - product price is whole USD dollars (Int), order money is Float (e.g. 133.6)
+// - product price is whole INR rupees (Int); order money is a Float column but
+//   holds whole-rupee values (tax is rounded at checkout so totals stay integer)
 // - product.slug is the URL slug; product ids match the frontend catalog ids
 // - badge/status stored as the exact contract string values
 generator client {
@@ -36,7 +37,7 @@ model Product {
   position     Int // catalog/"featured" order (= frontend src/data index)
   slug         String         @unique
   name         String
-  price        Int // whole USD dollars (contract: 1250 = $1,250.00)
+  price        Int // whole INR rupees (contract: 6490 = ₹6,490)
   description  String
   sku          String?
   variantLabel String? // contract's `variant` display sub-label
