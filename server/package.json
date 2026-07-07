@@ -5,6 +5,7 @@
   "description": "Siddhatva backend — Express + Prisma + Postgres implementing docs/API_CONTRACT.md",
   "scripts": {
     "db": "tsx scripts/db.ts",
+    "db:reset-lock": "tsx scripts/db.ts --reset-lock",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
