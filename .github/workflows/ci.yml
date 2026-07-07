@@ -1,0 +1,115 @@
+name: CI
+
+# Typecheck + build both packages, then run the Playwright e2e suite against a
+# real Postgres. Runs on pushes to main and on every PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      # Frontend
+      - name: Install (frontend)
+        run: npm ci
+      - name: Typecheck (frontend)
+        run: npm run typecheck
+      - name: Build (frontend)
+        run: npm run build
+
+      # Backend
+      - name: Install (server)
+        run: npm ci
+        working-directory: server
+      - name: Prisma generate
+        run: npm run prisma:generate
+        working-directory: server
+      - name: Typecheck (server)
+        run: npm run typecheck
+        working-directory: server
+      - name: Build (server)
+        run: npm run build
+        working-directory: server
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+
+    # A real Postgres for the run (the embedded dev DB is dev-only).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: siddhatva
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/siddhatva?schema=public
+      # Point the frontend dev server at the real API (default would be MSW).
+      VITE_API_URL: http://localhost:4000/api
+      CORS_ORIGIN: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install (frontend)
+        run: npm ci
+      - name: Install (server)
+        run: npm ci
+        working-directory: server
+
+      - name: Apply migrations
+        run: npm run migrate:deploy
+        working-directory: server
+      - name: Seed database
+        run: npm run seed
+        working-directory: server
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # The Playwright config starts the frontend (:3000) + API (:4000) itself.
+      - name: Run e2e
+        run: npm run test:e2e
+
+      # Traces (captured on retry) help debug a failed run.
+      - name: Upload Playwright traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
