@@ -1,6 +1,6 @@
-/* Fonts must precede all other rules (@import is ignored otherwise) */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+/* Fonts (Geist + Material Symbols) are loaded via <link> in index.html with
+   preconnect — a CSS @import here would be render-blocking (serialized after this
+   stylesheet loads), which tanked FCP/LCP. */
 
 @tailwind base;
 @tailwind components;

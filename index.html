@@ -5,6 +5,36 @@
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#b87b5a" />
+
+    <!-- Fonts: preconnect warms the connection; loaded async (media=print →
+         onload swap) so they never block first paint — display=swap paints
+         fallback text immediately, then swaps to Geist. Geist is narrowed to the
+         weights the design system uses (400/500/600) to cut payload. A <noscript>
+         fallback keeps fonts working without JS. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      />
+    </noscript>
     <meta
       name="description"
       content="Siddhatva — luxe minimalist editorial fashion. Bronze, blush and champagne essentials crafted with intention."
