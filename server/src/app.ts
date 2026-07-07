@@ -17,6 +17,10 @@ import { shiprocketWebhookRouter } from './routes/shiprocketWebhook';
 export function createApp() {
   const app = express();
 
+  // Behind a trusted proxy/CDN (prod), trust X-Forwarded-* so req.ip is the real
+  // client IP (used by the rate limiter). Off in local dev (no proxy).
+  if (env.trustProxy) app.set('trust proxy', 1);
+
   // credentials:true so the httpOnly refresh cookie flows cross-origin (dev).
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
 

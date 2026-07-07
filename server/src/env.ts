@@ -6,6 +6,10 @@ export const env = {
   port,
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
   isProd: process.env.NODE_ENV === 'production',
+  // Behind a proxy/CDN (Vercel/Railway) the real client IP is in X-Forwarded-For,
+  // not the socket address. Enable ONLY when actually behind a trusted proxy —
+  // otherwise clients could spoof the header. Off in local dev.
+  trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
   // Public origin of this API, used to build local dev image URLs.
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}`,
   // Public origin of the storefront (frontend), used to build links in emails.
