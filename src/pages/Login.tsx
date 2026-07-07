@@ -24,8 +24,11 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/account';
+  const locState = location.state as { from?: { pathname?: string }; notice?: string } | null;
+  const from = locState?.from?.pathname ?? '/account';
   const [serverError, setServerError] = useState<string | null>(null);
+  // One-time notice passed from e.g. a successful password reset.
+  const notice = locState?.notice ?? null;
 
   const {
     register,
@@ -51,6 +54,12 @@ export const LoginPage: React.FC = () => {
           Sign in to your Siddhatva account.
         </p>
 
+        {notice && (
+          <div role="status" className="mb-lg rounded-lg bg-success/10 border border-success/30 px-md py-sm text-sm text-success">
+            {notice}
+          </div>
+        )}
+
         {serverError && (
           <div role="alert" className="mb-lg rounded-lg bg-danger/10 border border-danger/30 px-md py-sm text-sm text-danger">
             {serverError}
@@ -64,7 +73,12 @@ export const LoginPage: React.FC = () => {
             {errors.email && <p className="text-xs text-danger mt-xs">{errors.email.message}</p>}
           </div>
           <div>
-            <label className={labelClass}>Password</label>
+            <div className="flex items-center justify-between mb-xs">
+              <label className={`${labelClass} mb-0`}>Password</label>
+              <Link to="/forgot-password" className="text-xs text-primary font-medium hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input type="password" className={inputClass} placeholder="••••••••" {...register('password')} />
             {errors.password && <p className="text-xs text-danger mt-xs">{errors.password.message}</p>}
           </div>

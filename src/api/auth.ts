@@ -32,3 +32,13 @@ export const logoutRequest = () =>
 // 401 here triggers the wrapper's refresh, so a returning user with a valid
 // refresh cookie is restored even though the access token isn't persisted.
 export const meRequest = () => apiFetch<{ user: AuthUser }>('/auth/me');
+
+// Password reset. forgot-password always resolves the same way (no enumeration);
+// reset-password 400s on an invalid/expired/used token.
+export const forgotPasswordRequest = (input: { email: string }) =>
+  apiFetch<{ ok: boolean; message: string }>('/auth/forgot-password', jsonInit(input), {
+    skipAuthRefresh: true,
+  });
+
+export const resetPasswordRequest = (input: { token: string; newPassword: string }) =>
+  apiFetch<{ ok: boolean }>('/auth/reset-password', jsonInit(input), { skipAuthRefresh: true });

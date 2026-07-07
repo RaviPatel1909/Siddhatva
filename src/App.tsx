@@ -14,6 +14,8 @@ import { CheckoutShippingPage } from './pages/CheckoutShipping';
 import { OrderConfirmedPage } from './pages/OrderConfirmed';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
+import { ForgotPasswordPage } from './pages/ForgotPassword';
+import { ResetPasswordPage } from './pages/ResetPassword';
 import { AccountOverviewPage } from './pages/account/AccountOverview';
 import { MyOrdersPage } from './pages/account/MyOrders';
 import { MyWishlistPage } from './pages/account/MyWishlist';
@@ -41,6 +43,8 @@ const AnimatedRoutes = () => {
         <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Authenticated customer area */}
         <Route element={<ProtectedRoute />}>
