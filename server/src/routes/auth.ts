@@ -153,7 +153,7 @@ authRouter.post(
 // response whether or not the email exists (no account enumeration). Rate-limited.
 authRouter.post(
   '/forgot-password',
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 5, name: 'forgot-password' }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'forgot-password' }),
   asyncHandler(async (req, res) => {
     const { email } = forgotPasswordBody.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
@@ -180,7 +180,7 @@ authRouter.post(
 // password, then REVOKE all refresh tokens (force re-login everywhere).
 authRouter.post(
   '/reset-password',
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 10, name: 'reset-password' }),
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 30, name: 'reset-password' }),
   asyncHandler(async (req, res) => {
     const { token, newPassword } = resetPasswordBody.parse(req.body);
     const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
