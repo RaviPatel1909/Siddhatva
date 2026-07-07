@@ -49,9 +49,15 @@ access token is missing/invalid; `requireAdmin` → 403 when the role is not `AD
 | `POST /auth/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401` on bad credentials |
 | `POST /auth/refresh` | — (refresh cookie) | `200 { user, accessToken }` + rotated cookie | `401` if missing/expired/reused; reuse revokes the whole token family |
 | `POST /auth/logout` | — (refresh cookie) | `200 { ok: true }`, clears cookie | revokes the presented refresh token |
+| `POST /auth/forgot-password` | `{ email }` | `200 { ok: true, message }` | **always identical** whether or not the email exists (no account enumeration); rate-limited. If it exists, emails a reset link (`/reset-password?token=…`, token valid 1h) via the EmailService (dev → `server/.mail/`). |
+| `POST /auth/reset-password` | `{ token, newPassword }` (password ≥ 8) | `200 { ok: true }` | validates the token (exists / not used / not expired — else `400`), sets the new bcrypt hash, marks the token **used (single-use)**, and **revokes all refresh tokens** (logout everywhere). Rate-limited. |
 | `GET /auth/me` | — (Bearer) | `200 { user }` | `401` if unauthenticated |
 
 Validation errors return `400 { message: "Validation failed", issues: [...] }`.
+
+Password reset stores only the **sha256 hash** of the token (never the raw token).
+Dev-only hook `POST /auth/reset-token-dev { email } → { token }` returns the last
+raw token for testing (404 in production) — mock-only, not part of the contract.
 
 **Which routes require auth:**
 
