@@ -1,5 +1,7 @@
-import { Order } from '../types/order';
+import { Order, OrderStatus } from '../types/order';
 import { getProductById } from './products';
+
+const TAX_RATE = 0.08;
 
 const lineItem = (productId: string, variant: string, quantity: number) => {
   const product = getProductById(productId)!;
@@ -13,121 +15,46 @@ const lineItem = (productId: string, variant: string, quantity: number) => {
   };
 };
 
+// Derive money from the line items so seed orders stay consistent with product
+// prices (INR, whole rupees) — no hand-kept subtotals to drift. Tax is rounded so
+// totals stay integer (which keeps displayed == charged, per src/lib/money.ts).
+type OrderSeed = Omit<Order, 'subtotal' | 'tax' | 'total' | 'shipping'> & { shipping?: number };
+const makeOrder = (o: OrderSeed): Order => {
+  const subtotal = o.items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+  const shipping = o.shipping ?? 0;
+  const tax = Math.round(subtotal * TAX_RATE);
+  return { ...o, subtotal, shipping, tax, total: subtotal + shipping + tax };
+};
+
+const order = (
+  id: string,
+  customerName: string,
+  date: string,
+  status: OrderStatus,
+  items: Order['items'],
+  shippingAddress: Order['shippingAddress'],
+  shipping = 0
+): Order => makeOrder({ id, customerName, date, status, items, shippingAddress, shipping });
+
 export const orders: Order[] = [
-  {
-    id: 'SID-98231',
-    customerName: 'Alexander Sterling',
-    date: '2023-10-24',
-    status: 'delivered',
-    items: [lineItem('6', 'Champagne / Size M', 1)],
-    subtotal: 420,
-    shipping: 0,
-    tax: 33.6,
-    total: 453.6,
-    shippingAddress: {
-      name: 'Alexander Sterling',
-      line1: '24 Bronze Lane',
-      city: 'London',
-      state: '',
-      zip: 'W1K 5QT',
-      country: 'United Kingdom',
-    },
-  },
-  {
-    id: 'ORD-8241',
-    customerName: 'Eleanor Martini',
-    date: '2023-10-24',
-    status: 'delivered',
-    items: [lineItem('1', 'Champagne / Size S', 1)],
-    subtotal: 1200,
-    shipping: 0,
-    tax: 50,
-    total: 1250,
-    shippingAddress: {
-      name: 'Eleanor Martini',
-      line1: '8 Via Roma',
-      city: 'Milan',
-      state: '',
-      zip: '20121',
-      country: 'Italy',
-    },
-  },
-  {
-    id: 'ORD-8242',
-    customerName: 'Julian Sterling',
-    date: '2023-10-24',
-    status: 'shipped',
-    items: [lineItem('10', 'Cognac', 1), lineItem('7', 'Burnished Bronze / 42', 1)],
-    subtotal: 2250,
-    shipping: 0,
-    tax: 180,
-    total: 2430,
-    shippingAddress: {
-      name: 'Julian Sterling',
-      line1: '410 Fifth Avenue',
-      city: 'New York',
-      state: 'NY',
-      zip: '10018',
-      country: 'United States',
-    },
-  },
-  {
-    id: 'ORD-8243',
-    customerName: 'Aurelia Blanche',
-    date: '2023-10-23',
-    status: 'processing',
-    items: [lineItem('4', 'Petal Blush / Size S', 1)],
-    subtotal: 520,
-    shipping: 15,
-    tax: 41.6,
-    total: 576.6,
-    shippingAddress: {
-      name: 'Aurelia Blanche',
-      line1: '12 Rue de Rivoli',
-      city: 'Paris',
-      state: '',
-      zip: '75004',
-      country: 'France',
-    },
-  },
-  {
-    id: 'ORD-8244',
-    customerName: 'Luca Valente',
-    date: '2023-10-23',
-    status: 'delivered',
-    items: [lineItem('9', 'Gold Vermeil', 1), lineItem('8', 'Oat', 1)],
-    subtotal: 1425,
-    shipping: 0,
-    tax: 114,
-    total: 1539,
-    shippingAddress: {
-      name: 'Luca Valente',
-      line1: '3 Piazza del Duomo',
-      city: 'Florence',
-      state: '',
-      zip: '50122',
-      country: 'Italy',
-    },
-  },
-  {
-    id: 'ORD-8245',
-    customerName: 'Alexander Sterling',
-    date: '2023-09-30',
-    status: 'cancelled',
-    items: [lineItem('12', 'Midnight Black / Size L', 1)],
-    subtotal: 550,
-    shipping: 0,
-    tax: 44,
-    total: 594,
-    shippingAddress: {
-      name: 'Alexander Sterling',
-      line1: '24 Bronze Lane',
-      city: 'London',
-      state: '',
-      zip: 'W1K 5QT',
-      country: 'United Kingdom',
-    },
-  },
+  order('SID-98231', 'Alexander Sterling', '2023-10-24', 'delivered',
+    [lineItem('6', 'Champagne / Size M', 1)],
+    { name: 'Alexander Sterling', line1: '24 Bronze Lane', city: 'London', state: '', zip: 'W1K 5QT', country: 'United Kingdom' }),
+  order('ORD-8241', 'Eleanor Martini', '2023-10-24', 'delivered',
+    [lineItem('1', 'Champagne / Size S', 1)],
+    { name: 'Eleanor Martini', line1: '8 Via Roma', city: 'Milan', state: '', zip: '20121', country: 'Italy' }),
+  order('ORD-8242', 'Julian Sterling', '2023-10-24', 'shipped',
+    [lineItem('10', 'Cognac', 1), lineItem('7', 'Burnished Bronze / 42', 1)],
+    { name: 'Julian Sterling', line1: '410 Fifth Avenue', city: 'New York', state: 'NY', zip: '10018', country: 'United States' }),
+  order('ORD-8243', 'Aurelia Blanche', '2023-10-23', 'processing',
+    [lineItem('4', 'Petal Blush / Size S', 1)],
+    { name: 'Aurelia Blanche', line1: '12 Rue de Rivoli', city: 'Paris', state: '', zip: '75004', country: 'France' }),
+  order('ORD-8244', 'Luca Valente', '2023-10-23', 'delivered',
+    [lineItem('9', 'Gold Vermeil', 1), lineItem('8', 'Oat', 1)],
+    { name: 'Luca Valente', line1: '3 Piazza del Duomo', city: 'Florence', state: '', zip: '50122', country: 'Italy' }),
+  order('ORD-8245', 'Alexander Sterling', '2023-09-30', 'cancelled',
+    [lineItem('12', 'Midnight Black / Size L', 1)],
+    { name: 'Alexander Sterling', line1: '24 Bronze Lane', city: 'London', state: '', zip: 'W1K 5QT', country: 'United Kingdom' }),
 ];
 
 export const getOrderById = (id: string): Order | undefined =>

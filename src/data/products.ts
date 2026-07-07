@@ -16,7 +16,7 @@ export const products: Product[] = [
   {
     id: '1',
     name: "L'Artiste Silk Blazer",
-    price: 1200,
+    price: 6490,
     description:
       'A timeless piece crafted from premium mulberry silk, featuring a sculptural cut and impeccable tailoring.',
     category: 'Women',
@@ -37,7 +37,7 @@ export const products: Product[] = [
   {
     id: '2',
     name: 'Linen Trench Coat',
-    price: 480,
+    price: 5490,
     description: 'Warm sand linen trench with a relaxed drape, finished with horn buttons and a tie belt.',
     category: 'Women',
     variant: 'Warm Sand',
@@ -54,7 +54,7 @@ export const products: Product[] = [
   {
     id: '3',
     name: 'Bronze Heeled Sandals',
-    price: 340,
+    price: 3290,
     description: 'Metallic bronze leather heeled sandals with an architectural strap silhouette.',
     category: 'Women',
     variant: 'Metallic Bronze',
@@ -70,7 +70,7 @@ export const products: Product[] = [
   {
     id: '4',
     name: 'Silk Wrap Dress',
-    price: 520,
+    price: 4290,
     description: 'A fluid silk wrap dress in petal blush, cut to move with the body.',
     category: 'Women',
     variant: 'Petal Blush',
@@ -87,7 +87,7 @@ export const products: Product[] = [
   {
     id: '5',
     name: 'Travertine Bucket Bag',
-    price: 760,
+    price: 5990,
     description: 'Structured bucket bag in dune-toned full-grain leather with a bronze hardware clasp.',
     category: 'Accessories',
     variant: 'Dune',
@@ -103,7 +103,7 @@ export const products: Product[] = [
   {
     id: '6',
     name: 'Heritage Silk Evening Shirt',
-    price: 420,
+    price: 3490,
     description: 'A refined silk evening shirt with mother-of-pearl buttons and a modern spread collar.',
     category: 'Men',
     variant: 'Champagne',
@@ -119,7 +119,7 @@ export const products: Product[] = [
   {
     id: '7',
     name: 'Bespoke Chelsea Boots',
-    price: 850,
+    price: 6990,
     description: 'Hand-lasted chelsea boots in burnished bronze leather with a stacked leather heel.',
     category: 'Men',
     variant: 'Burnished Bronze',
@@ -135,7 +135,7 @@ export const products: Product[] = [
   {
     id: '8',
     name: 'Pure Cashmere Scarf',
-    price: 275,
+    price: 2990,
     description: 'A featherlight 100% cashmere scarf in a warm neutral tone, woven for year-round layering.',
     category: 'Accessories',
     variant: 'Oat',
@@ -151,7 +151,7 @@ export const products: Product[] = [
   {
     id: '9',
     name: 'Architectural Gold Cuff',
-    price: 1150,
+    price: 4990,
     description: 'A sculptural cuff in brushed gold vermeil, designed as a single continuous form.',
     category: 'Accessories',
     variant: 'Gold Vermeil',
@@ -168,7 +168,7 @@ export const products: Product[] = [
   {
     id: '10',
     name: 'Leather Weekender',
-    price: 1400,
+    price: 7990,
     description: 'A full-grain leather weekender bag built for effortless travel, with brushed brass hardware.',
     category: 'Accessories',
     variant: 'Cognac',
@@ -184,7 +184,7 @@ export const products: Product[] = [
   {
     id: '11',
     name: 'Sculpted Wool Blazer',
-    price: 1250,
+    price: 6790,
     description: 'A structured wool blazer in charcoal grey with a sculptural, minimalist silhouette.',
     category: 'Men',
     variant: 'Charcoal Grey',
@@ -200,7 +200,7 @@ export const products: Product[] = [
   {
     id: '12',
     name: 'Silk Satin Evening Shirt',
-    price: 550,
+    price: 3290,
     description: 'A midnight black silk-satin shirt with a hidden placket, cut for evening occasions.',
     category: 'Men',
     variant: 'Midnight Black',
@@ -217,7 +217,7 @@ export const products: Product[] = [
   {
     id: '13',
     name: 'Italian Grain Loafers',
-    price: 890,
+    price: 5490,
     description: 'Handcrafted natural tan leather loafers from an Italian atelier, finished with a hand-stitched apron.',
     category: 'Men',
     variant: 'Natural Tan',
@@ -234,7 +234,7 @@ export const products: Product[] = [
   {
     id: '14',
     name: 'T-Line Silver Cuff',
-    price: 420,
+    price: 2490,
     description: 'A minimalist geometric cuff in brushed sterling silver.',
     category: 'Accessories',
     variant: 'Sterling Silver',
