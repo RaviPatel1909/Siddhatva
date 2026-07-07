@@ -11,7 +11,7 @@ const app = createApp();
 
 const server = app.listen(env.port, () => {
   // eslint-disable-next-line no-console
-  console.log(`Siddhatva API listening on http://localhost:${env.port}`);
+  console.log(`Siddhatva API listening on port ${env.port}`);
 });
 
 // Drain in-flight requests + close Prisma on SIGTERM/SIGINT before exiting.
