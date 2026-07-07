@@ -3,8 +3,9 @@ import { Column, Heading, Row, Section, Text } from '@react-email/components';
 import { BrandButton, EmailLayout } from './Layout';
 import { email } from './theme';
 import { OrderEmailData } from './types';
+import { formatPrice } from '../lib/money';
 
-const money = (n: number): string => `$${n.toFixed(2)}`;
+const money = (n: number): string => formatPrice(n);
 
 // Sent on order.paid — confirms the server-verified payment and lists the order.
 export function OrderConfirmationEmail({ order }: { order: OrderEmailData }): React.ReactElement {

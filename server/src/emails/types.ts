@@ -6,7 +6,7 @@ export interface EmailOrderItem {
   name: string;
   variant: string;
   quantity: number;
-  price: number; // per-unit, in store currency (USD)
+  price: number; // per-unit, in store currency (INR, whole rupees)
 }
 
 export interface EmailAddress {
