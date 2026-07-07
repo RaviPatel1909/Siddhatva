@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Seo } from '../components/seo/Seo';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ProductCard } from '../components/product/ProductCard';
@@ -66,8 +67,14 @@ export const ShopAllPage: React.FC = () => {
     setPage(1);
   };
 
+  const catTitle = activeCategory ? `${activeCategory} Collection` : 'Shop All';
+  const catDesc = activeCategory
+    ? `Shop ${activeCategory.toLowerCase()} pieces from Siddhatva — luxe minimalist editorial fashion crafted with intention.`
+    : 'Browse the full Siddhatva collection — luxe minimalist editorial fashion in bronze, blush and champagne.';
+
   return (
     <MainLayout>
+      <Seo title={catTitle} description={catDesc} canonicalPath={activeCategory ? `/shop/${activeCategory}` : '/shop'} />
       <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-xl">
         <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'All Collections' }]} />
 

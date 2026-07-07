@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MainLayout } from '../components/layout/MainLayout';
+import { Seo } from '../components/seo/Seo';
 import { Button } from '../components/ui/Button';
 import { forgotPasswordRequest } from '../api/auth';
 
@@ -39,6 +40,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
   return (
     <MainLayout>
+      <Seo title="Reset Password" noindex />
       <div className="max-w-md mx-auto px-margin-mobile py-24">
         <h1 className="font-display text-headline-lg text-on-surface text-center mb-xs">Reset your password</h1>
 

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
+import { Seo } from '../components/seo/Seo';
 import { formatPrice } from '../lib/money';
 import { CartLineItem } from '../components/cart/CartLineItem';
 import { OrderSummaryCard } from '../components/cart/OrderSummaryCard';
@@ -24,6 +25,7 @@ export const ShoppingBagPage: React.FC = () => {
   if (items.length === 0) {
     return (
       <MainLayout>
+        <Seo title="Your Bag" noindex />
         <div className="max-w-3xl mx-auto px-margin-mobile py-24">
           <EmptyState
             icon="shopping_bag"
@@ -39,6 +41,7 @@ export const ShoppingBagPage: React.FC = () => {
 
   return (
     <MainLayout>
+      <Seo title="Your Bag" noindex />
       <div className="pb-24 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto min-h-screen">
         <div className="mb-xl text-center md:text-left pt-xl">
           <h1 className="font-display text-4xl md:text-5xl text-primary font-light tracking-tight">

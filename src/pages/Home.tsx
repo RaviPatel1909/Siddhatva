@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
+import { Seo } from '../components/seo/Seo';
 import { ProductCard } from '../components/product/ProductCard';
 import { FadeInSection } from '../components/shared/FadeInSection';
 import { useCart } from '../context/CartContext';
@@ -93,6 +94,11 @@ export const HomePage: React.FC = () => {
 
   return (
     <MainLayout>
+      <Seo
+        canonicalPath="/"
+        description="Luxe minimalist editorial fashion from Siddhatva — bronze, blush and champagne essentials crafted with intention. Shop the collection."
+        image={content.hero.image}
+      />
       {/* Hero */}
       <section className="relative h-[85vh] overflow-hidden">
         <div className="absolute inset-0 bg-on-background/20 z-10" />

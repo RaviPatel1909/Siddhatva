@@ -3,9 +3,12 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { AccountSidebar } from './AccountSidebar';
 import { MobileBottomNav } from './MobileBottomNav';
+import { Seo } from '../seo/Seo';
 
 export const AccountLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex flex-col min-h-screen bg-background text-on-background grain-overlay">
+    {/* Private account area — never index (pages may override the title). */}
+    <Seo title="My Account" noindex />
     <Navbar />
     <div className="flex flex-1 max-w-7xl w-full mx-auto">
       <AccountSidebar />

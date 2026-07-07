@@ -15,6 +15,7 @@ import { getProduct, getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
 import { ApiError } from '../api/client';
 import { trackViewItem } from '../lib/analytics';
+import { Seo, ProductJsonLd } from '../components/seo/Seo';
 
 const DetailSkeleton = () => (
   <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
@@ -103,6 +104,21 @@ export const ProductDetailPage: React.FC = () => {
           />
         ) : (
           <>
+            <Seo
+              title={product.name}
+              description={product.description}
+              image={product.images[0]?.src}
+              canonicalPath={`/product/${product.id}`}
+              ogType="product"
+            />
+            <ProductJsonLd
+              name={product.name}
+              description={product.description}
+              image={product.images[0]?.src ?? ''}
+              price={product.price}
+              sku={product.sku}
+              category={product.category}
+            />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
               <div className="lg:col-span-7">
                 <ProductGallery images={product.images} productName={product.name} />

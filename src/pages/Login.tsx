@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MainLayout } from '../components/layout/MainLayout';
+import { Seo } from '../components/seo/Seo';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
@@ -48,6 +49,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <MainLayout>
+      <Seo title="Sign In" noindex />
       <div className="max-w-md mx-auto px-margin-mobile py-24">
         <h1 className="font-display text-headline-lg text-on-surface text-center mb-xs">Welcome back</h1>
         <p className="font-body-md text-body-md text-on-surface-variant text-center mb-xl">
