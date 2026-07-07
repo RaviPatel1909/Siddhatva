@@ -127,7 +127,9 @@
   height: 100%;
   opacity: 0.03;
   pointer-events: none;
-  background-image: url('https://www.transparenttextures.com/patterns/felt.png');
+  /* Self-hosted (was an external CDN — transparenttextures.com — a prod liability
+     for a purely cosmetic asset). Served from /public. */
+  background-image: url('/textures/felt.png');
   z-index: 9999;
 }
 
