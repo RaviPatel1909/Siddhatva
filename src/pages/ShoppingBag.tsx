@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
+import { formatPrice } from '../lib/money';
 import { CartLineItem } from '../components/cart/CartLineItem';
 import { OrderSummaryCard } from '../components/cart/OrderSummaryCard';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -139,7 +140,7 @@ export const ShoppingBagPage: React.FC = () => {
                       <h4 className="text-lg font-medium text-on-surface">{product.name}</h4>
                       <p className="text-xs text-on-surface-variant italic">{product.variant}</p>
                     </div>
-                    <span className="text-sm font-medium text-primary">${product.price.toFixed(2)}</span>
+                    <span className="text-sm font-medium text-primary">{formatPrice(product.price)}</span>
                   </div>
                 </div>
               ))}

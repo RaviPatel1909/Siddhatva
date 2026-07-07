@@ -5,6 +5,7 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { useQuery } from '@tanstack/react-query';
 import { getAdminOrders } from '../../api/admin';
+import { formatPrice } from '../../lib/money';
 
 const BARS = [32, 48, 56, 40, 64, 72, 80];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL'];
@@ -45,7 +46,7 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
-        <StatCard icon="payments" label="Total Revenue" value="$124,500" delta={{ value: '+12.5%', direction: 'up' }} accent="primary" footnote="Vs last month: $110,660" />
+        <StatCard icon="payments" label="Total Revenue" value="₹1,24,500" delta={{ value: '+12.5%', direction: 'up' }} accent="primary" footnote="Vs last month: ₹1,10,660" />
         <StatCard icon="local_mall" label="Total Orders" value="842" delta={{ value: '+8.2%', direction: 'up' }} accent="secondary" footnote="Avg. 28 orders / day" />
         <StatCard icon="group_add" label="Active Customers" value="1,205" delta={{ value: '+5.4%', direction: 'up' }} accent="tertiary" footnote="Engagement rate: 82%" />
         <StatCard icon="ads_click" label="Conversion Rate" value="3.4%" delta={{ value: '-0.2%', direction: 'down' }} accent="outline" footnote="Benchmark: 3.2%" />
@@ -156,7 +157,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <td className="py-md">
                     <Badge variant={order.status}>{order.status}</Badge>
                   </td>
-                  <td className="py-md text-right font-medium">${order.total.toFixed(2)}</td>
+                  <td className="py-md text-right font-medium">{formatPrice(order.total)}</td>
                 </tr>
               ))}
             </tbody>

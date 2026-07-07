@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '../ui/Badge';
 import { ProductBadge } from '../../types/product';
+import { formatPrice } from '../../lib/money';
 import { useWishlist } from '../../context/WishlistContext';
 import { getProductById } from '../../data/products';
 
@@ -134,7 +135,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <p className="font-body-md text-body-md text-on-surface-variant text-sm">{subtitle}</p>
       )}
       <p className="font-body-md text-body-md font-semibold mt-xs text-primary">
-        ${price.toFixed(2)}
+        {formatPrice(price)}
       </p>
     </div>
   </div>

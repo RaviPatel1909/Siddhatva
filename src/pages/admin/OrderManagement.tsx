@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAdminOrders, updateOrderStatus, shipOrder, OrderStatus } from '../../api/admin';
+import { formatPrice } from '../../lib/money';
 
 // Remaining status actions. Shipping a `processing` order is handled by the
 // Create Shipment action (which needs a PAID order), not a manual status change,
@@ -150,8 +151,8 @@ export const OrderManagementPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
         <StatCard icon="add_shopping_cart" label="New Orders" value={String(orders.length)} accent="primary" />
-        <StatCard icon="payments" label="Revenue Today" value={`$${revenueToday.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} accent="secondary" />
-        <StatCard icon="trending_up" label="Avg. Value" value={`$${avgValue.toFixed(0)}`} accent="tertiary" />
+        <StatCard icon="payments" label="Revenue Today" value={formatPrice(revenueToday)} accent="secondary" />
+        <StatCard icon="trending_up" label="Avg. Value" value={formatPrice(avgValue)} accent="tertiary" />
         <StatCard icon="local_shipping" label="Pending Fulfillment" value={String(pendingFulfillment)} accent="outline" />
       </div>
 
@@ -220,7 +221,7 @@ export const OrderManagementPage: React.FC = () => {
                   </td>
                   <td className="py-md text-on-surface-variant">{order.items.length}</td>
                   <td className="py-md"><Badge variant={order.status}>{order.status}</Badge></td>
-                  <td className="py-md text-right font-medium">${order.total.toFixed(2)}</td>
+                  <td className="py-md text-right font-medium">{formatPrice(order.total)}</td>
                   <td className="py-md">
                     <div className="flex justify-end gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -313,17 +314,17 @@ export const OrderManagementPage: React.FC = () => {
                       <p className="text-sm font-medium text-on-surface">{item.name}</p>
                       <p className="text-xs text-on-surface-variant">{item.variant} · Qty {item.quantity}</p>
                     </div>
-                    <p className="text-sm font-medium text-primary">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="text-sm font-medium text-primary">{formatPrice(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="mb-lg space-y-xs text-sm border-t border-outline-variant/20 pt-md">
-              <div className="flex justify-between"><span className="text-on-surface-variant">Subtotal</span><span>${selectedOrder.subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-on-surface-variant">Shipping</span><span>{selectedOrder.shipping === 0 ? 'Complimentary' : `$${selectedOrder.shipping.toFixed(2)}`}</span></div>
-              <div className="flex justify-between"><span className="text-on-surface-variant">Tax</span><span>${selectedOrder.tax.toFixed(2)}</span></div>
-              <div className="flex justify-between font-semibold pt-xs border-t border-outline-variant/20"><span>Total</span><span className="text-primary">${selectedOrder.total.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-on-surface-variant">Subtotal</span><span>{formatPrice(selectedOrder.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-on-surface-variant">Shipping</span><span>{selectedOrder.shipping === 0 ? 'Complimentary' : formatPrice(selectedOrder.shipping)}</span></div>
+              <div className="flex justify-between"><span className="text-on-surface-variant">Tax</span><span>{formatPrice(selectedOrder.tax)}</span></div>
+              <div className="flex justify-between font-semibold pt-xs border-t border-outline-variant/20"><span>Total</span><span className="text-primary">{formatPrice(selectedOrder.total)}</span></div>
             </div>
 
             <div className="mb-lg">

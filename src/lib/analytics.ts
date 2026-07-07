@@ -19,9 +19,9 @@ declare global {
 const GA4_ID = import.meta.env.VITE_GA4_ID;
 const enabled = (): boolean => Boolean(GA4_ID);
 
-// Store currency. Prices across the storefront are shown in USD, so analytics
-// values are reported in USD for consistency with what the shopper sees.
-const CURRENCY = 'USD';
+// Store currency. Prices are INR (domestic India store), so analytics values are
+// reported in INR — matching both what the shopper sees and the Razorpay charge.
+const CURRENCY = 'INR';
 
 let consentGranted = true; // default; call setAnalyticsConsent(false) before init to withhold
 let initialized = false;

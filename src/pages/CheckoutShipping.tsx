@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { queryKeys } from '../api/queryKeys';
 import { collectPayment, payInit, verifyPayment } from '../api/payments';
 import { trackBeginCheckout } from '../lib/analytics';
+import { formatPrice } from '../lib/money';
 
 type Step = 'information' | 'shipping' | 'payment';
 const STEP_LABELS = ['Cart', 'Information', 'Shipping', 'Payment'];
@@ -56,7 +57,9 @@ export const CheckoutShippingPage: React.FC = () => {
   const [payError, setPayError] = useState<string | null>(null);
 
   const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
-  const tax = subtotal * 0.08;
+  // Round tax so money stays whole-rupee integers → the displayed ₹ total equals
+  // the Razorpay charge (total × 100 paise) exactly. See src/lib/money.ts.
+  const tax = Math.round(subtotal * 0.08);
   const total = subtotal + shipping + tax;
 
   // GA4 begin_checkout — fire once when the checkout opens with items in the bag.
@@ -303,7 +306,7 @@ export const CheckoutShippingPage: React.FC = () => {
                   disabled={isSubmitting}
                   className="bg-primary text-on-primary px-xl py-md rounded-lg font-label-sm text-sm uppercase tracking-widest font-semibold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Processing…' : `Pay $${total.toFixed(2)}`}
+                  {isSubmitting ? 'Processing…' : `Pay ${formatPrice(total)}`}
                 </button>
               ) : (
                 <button
@@ -331,7 +334,7 @@ export const CheckoutShippingPage: React.FC = () => {
                     <p className="text-sm font-medium text-on-surface">{item.product.name}</p>
                     <p className="text-xs text-on-surface-variant">{item.color.name} / {item.size}</p>
                   </div>
-                  <p className="text-sm font-medium text-primary">${(item.product.price * item.quantity).toFixed(2)}</p>
+                  <p className="text-sm font-medium text-primary">{formatPrice(item.product.price * item.quantity)}</p>
                 </div>
               ))}
             </div>

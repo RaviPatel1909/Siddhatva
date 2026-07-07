@@ -6,6 +6,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { TrackingTimeline } from '../../components/order/TrackingTimeline';
+import { formatPrice } from '../../lib/money';
 import { getOrders } from '../../api/orders';
 import { queryKeys } from '../../api/queryKeys';
 import { OrderStatus } from '../../types/order';
@@ -80,7 +81,7 @@ export const MyOrdersPage: React.FC = () => {
                   <span className="font-medium text-on-surface">Order #{order.id}</span>
                 </div>
                 <div className="flex items-center gap-md">
-                  <span className="font-semibold text-primary">${order.total.toFixed(2)}</span>
+                  <span className="font-semibold text-primary">{formatPrice(order.total)}</span>
                   <Badge variant={order.status} icon={STATUS_ICON[order.status]}>
                     {order.status}
                   </Badge>
@@ -96,7 +97,7 @@ export const MyOrdersPage: React.FC = () => {
                       <p className="font-medium text-on-surface">{item.name}</p>
                       <p className="text-sm text-on-surface-variant">{item.variant} · Qty {item.quantity}</p>
                     </div>
-                    <p className="text-sm font-medium text-primary">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="text-sm font-medium text-primary">{formatPrice(item.price * item.quantity)}</p>
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-sm pt-sm">

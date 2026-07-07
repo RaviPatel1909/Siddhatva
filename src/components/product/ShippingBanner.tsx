@@ -10,7 +10,7 @@ interface ShippingBannerProps {
 }
  
 export const ShippingBanner: React.FC<ShippingBannerProps> = ({
-  message = 'Complimentary shipping on orders over $500',
+  message = 'Complimentary shipping on orders over ₹500',
   className = '',
 }) => (
   <div

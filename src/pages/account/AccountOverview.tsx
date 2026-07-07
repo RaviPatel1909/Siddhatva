@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AccountLayout } from '../../components/layout/AccountLayout';
+import { formatPrice } from '../../lib/money';
 import { Badge } from '../../components/ui/Badge';
 import { useOrders } from '../../context/OrdersContext';
 import { useAuth } from '../../context/AuthContext';
@@ -64,7 +65,7 @@ export const AccountOverviewPage: React.FC = () => {
                       Order #{recentOrder.id} · {new Date(recentOrder.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                   </div>
-                  <p className="text-lg font-semibold text-primary shrink-0">${recentOrder.total.toFixed(2)}</p>
+                  <p className="text-lg font-semibold text-primary shrink-0">{formatPrice(recentOrder.total)}</p>
                 </div>
                 <div className="flex gap-sm mt-lg">
                   <button
@@ -145,7 +146,7 @@ export const AccountOverviewPage: React.FC = () => {
                   />
                 </div>
                 <h4 className="text-[15px] text-primary">{product.name}</h4>
-                <p className="text-base font-semibold text-secondary mt-xs">${product.price.toFixed(2)}</p>
+                <p className="text-base font-semibold text-secondary mt-xs">{formatPrice(product.price)}</p>
               </button>
             ))}
           </div>

@@ -5,6 +5,7 @@ import { CheckoutLayout } from '../components/layout/CheckoutLayout';
 import { useOrders } from '../context/OrdersContext';
 import { getOrder } from '../api/orders';
 import { trackPurchase } from '../lib/analytics';
+import { formatPrice } from '../lib/money';
 
 const CONFETTI_CLASSES = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-primary-container'];
 
@@ -151,7 +152,7 @@ export const OrderConfirmedPage: React.FC = () => {
                   <p className="text-sm font-medium text-on-surface">{item.name}</p>
                   <p className="text-xs text-on-surface-variant">{item.variant} · Qty {item.quantity}</p>
                 </div>
-                <p className="text-sm font-medium text-primary">${(item.price * item.quantity).toFixed(2)}</p>
+                <p className="text-sm font-medium text-primary">{formatPrice(item.price * item.quantity)}</p>
               </div>
             ))}
           </div>
@@ -160,11 +161,11 @@ export const OrderConfirmedPage: React.FC = () => {
             <div className="bg-surface-container-low rounded-lg border border-outline-variant/30 p-lg">
               <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant mb-md">Totals</h3>
               <div className="space-y-xs text-sm">
-                <div className="flex justify-between"><span className="text-on-surface-variant">Subtotal</span><span>${order.subtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-on-surface-variant">Shipping</span><span className={order.shipping === 0 ? 'text-primary italic' : ''}>{order.shipping === 0 ? 'Complimentary' : `$${order.shipping.toFixed(2)}`}</span></div>
-                <div className="flex justify-between"><span className="text-on-surface-variant">Tax</span><span>${order.tax.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-on-surface-variant">Subtotal</span><span>{formatPrice(order.subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-on-surface-variant">Shipping</span><span className={order.shipping === 0 ? 'text-primary italic' : ''}>{order.shipping === 0 ? 'Complimentary' : formatPrice(order.shipping)}</span></div>
+                <div className="flex justify-between"><span className="text-on-surface-variant">Tax</span><span>{formatPrice(order.tax)}</span></div>
                 <div className="flex justify-between font-semibold pt-xs border-t border-outline-variant/30 mt-xs">
-                  <span>Total</span><span className="text-primary">${order.total.toFixed(2)}</span>
+                  <span>Total</span><span className="text-primary">{formatPrice(order.total)}</span>
                 </div>
               </div>
             </div>

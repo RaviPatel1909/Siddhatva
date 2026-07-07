@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatPrice } from '../../lib/money';
 
 interface OrderSummaryCardProps {
   subtotal: number;
@@ -31,17 +32,17 @@ export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
       <div className="space-y-sm mb-lg">
         <div className="flex justify-between text-sm">
           <span className="text-on-surface-variant uppercase tracking-wider">Subtotal</span>
-          <span className="text-on-surface font-medium">${subtotal.toFixed(2)}</span>
+          <span className="text-on-surface font-medium">{formatPrice(subtotal)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-on-surface-variant uppercase tracking-wider">Shipping</span>
           <span className="text-primary font-medium italic">
-            {shipping === 0 ? 'Complimentary' : `$${shipping.toFixed(2)}`}
+            {shipping === 0 ? 'Complimentary' : formatPrice(shipping)}
           </span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-on-surface-variant uppercase tracking-wider">Taxes</span>
-          <span className="text-on-surface font-medium">${tax.toFixed(2)}</span>
+          <span className="text-on-surface font-medium">{formatPrice(tax)}</span>
         </div>
       </div>
 
@@ -65,7 +66,7 @@ export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
         <div className="flex justify-between items-end">
           <span className="text-sm font-medium uppercase tracking-widest text-on-surface-variant">Total</span>
           <div className="text-right">
-            <span className="text-3xl font-display text-primary">${total.toFixed(2)}</span>
+            <span className="text-3xl font-display text-primary">{formatPrice(total)}</span>
             <p className="text-[10px] text-on-surface-variant mt-1 italic">Taxes and duties included</p>
           </div>
         </div>

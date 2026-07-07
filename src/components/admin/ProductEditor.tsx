@@ -140,7 +140,7 @@ export const ProductEditor: React.FC<ProductEditorProps> = ({ initial, onClose, 
               <input aria-label="Product name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <label className={labelClass}>Price (USD)</label>
+              <label className={labelClass}>Price (₹)</label>
               <input aria-label="Price" type="number" className={inputClass} value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>

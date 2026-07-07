@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ColorSelector, type Color } from './ColorSelector';
 import { SizeSelector } from './SizeSelector';
 import { QuantitySelector } from './QuantitySelector';
+import { formatPrice } from '../../lib/money';
 // ============================================================================
 // 7. PRODUCT DETAILS SECTION
 // ============================================================================
@@ -54,7 +55,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
         </h1>
         <div className="flex items-center gap-md">
           <p className="font-display text-headline-md text-on-surface">
-            ${price.toFixed(2)}
+            {formatPrice(price)}
           </p>
           {rating && (
             <div className="flex items-center gap-xs text-on-surface-variant">

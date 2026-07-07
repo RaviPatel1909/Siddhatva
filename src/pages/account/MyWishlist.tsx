@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AccountLayout } from '../../components/layout/AccountLayout';
+import { formatPrice } from '../../lib/money';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useCart } from '../../context/CartContext';
@@ -103,7 +104,7 @@ export const MyWishlistPage: React.FC = () => {
                 </div>
                 <h4 className="text-[15px] text-on-surface">{product.name}</h4>
                 <p className="text-sm text-on-surface-variant">{product.variant}</p>
-                <p className="text-base font-semibold text-primary mt-xs">${product.price.toFixed(2)}</p>
+                <p className="text-base font-semibold text-primary mt-xs">{formatPrice(product.price)}</p>
               </div>
             );
           })}

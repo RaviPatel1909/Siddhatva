@@ -1,5 +1,6 @@
 import React from 'react';
 import { QuantitySelector } from '../product/QuantitySelector';
+import { formatPrice } from '../../lib/money';
 
 interface CartLineItemProps {
   image: string;
@@ -34,7 +35,7 @@ export const CartLineItem: React.FC<CartLineItemProps> = ({
           <h3 className="font-body-md text-xl font-medium text-on-surface">{name}</h3>
           <p className="text-sm text-on-surface-variant mt-1 italic">{variant}</p>
         </div>
-        <span className="text-xl font-light text-primary">${(price * quantity).toFixed(2)}</span>
+        <span className="text-xl font-light text-primary">{formatPrice(price * quantity)}</span>
       </div>
       <div className="flex items-center justify-between mt-8">
         <QuantitySelector quantity={quantity} onQuantityChange={onQuantityChange} />

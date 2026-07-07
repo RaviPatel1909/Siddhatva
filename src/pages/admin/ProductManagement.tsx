@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
+import { formatPrice } from '../../lib/money';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
 import { ProductEditor } from '../../components/admin/ProductEditor';
@@ -223,7 +224,7 @@ export const ProductManagementPage: React.FC = () => {
                   </td>
                   <td className="py-md text-on-surface-variant">{product.sku}</td>
                   <td className="py-md text-on-surface-variant">{product.category}</td>
-                  <td className="py-md font-medium">${product.price.toFixed(2)}</td>
+                  <td className="py-md font-medium">{formatPrice(product.price)}</td>
                   <td className="py-md">
                     <div className="flex items-center gap-xs">
                       <div className={`w-16 h-1.5 rounded-full ${STOCK_TRACK} overflow-hidden`}>

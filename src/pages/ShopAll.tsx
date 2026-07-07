@@ -169,10 +169,10 @@ export const ShopAllPage: React.FC = () => {
               <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-md">
                 Price Range
               </h3>
-              <input type="range" min="0" max="1500" defaultValue="1500" className="w-full accent-primary" disabled />
+              <input type="range" min="0" max="8000" defaultValue="8000" className="w-full accent-primary" disabled />
               <div className="flex justify-between text-xs text-on-surface-variant mt-xs">
-                <span>$0</span>
-                <span>$1,500+</span>
+                <span>₹0</span>
+                <span>₹8,000+</span>
               </div>
             </div>
           </aside>
