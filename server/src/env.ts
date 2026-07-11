@@ -2,9 +2,19 @@ import 'dotenv/config';
 
 const port = Number(process.env.PORT ?? 4000);
 
+// Allowed browser origins for CORS. CORS_ORIGINS (comma-separated) is the
+// configurable list — e.g. "https://your-frontend.app,http://localhost:3000" —
+// so deploy URLs are never hardcoded. Falls back to the legacy single
+// CORS_ORIGIN, then the local dev frontend. Values are normalized (trimmed,
+// trailing slash stripped — an Origin header never has one).
+const corsOrigins = (process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 export const env = {
   port,
-  corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  corsOrigins,
   isProd: process.env.NODE_ENV === 'production',
   // Behind a proxy/CDN (Vercel/Railway) the real client IP is in X-Forwarded-For,
   // not the socket address. Enable ONLY when actually behind a trusted proxy —
@@ -13,8 +23,8 @@ export const env = {
   // Public origin of this API, used to build local dev image URLs.
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}`,
   // Public origin of the storefront (frontend), used to build links in emails.
-  // Defaults to the CORS origin (the dev frontend).
-  appUrl: process.env.APP_URL ?? process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  // Defaults to the first allowed CORS origin (the storefront).
+  appUrl: process.env.APP_URL ?? corsOrigins[0] ?? 'http://localhost:3000',
 
   // Auth. Secrets MUST be set in production; the dev fallbacks are obvious.
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-only-access-secret-change-me',

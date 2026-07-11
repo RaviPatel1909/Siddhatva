@@ -21,8 +21,10 @@ export function createApp() {
   // client IP (used by the rate limiter). Off in local dev (no proxy).
   if (env.trustProxy) app.set('trust proxy', 1);
 
-  // credentials:true so the httpOnly refresh cookie flows cross-origin (dev).
-  app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  // Allowed origins come from CORS_ORIGINS (comma-separated env) — the cors
+  // package echoes back whichever listed origin made the request. credentials:
+  // true so the httpOnly refresh cookie flows cross-origin.
+  app.use(cors({ origin: env.corsOrigins, credentials: true }));
 
   // Webhooks need the RAW body for signature/token verification — mount them
   // (with express.raw) BEFORE express.json parses everything else.

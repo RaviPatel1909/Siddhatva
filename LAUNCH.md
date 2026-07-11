@@ -84,7 +84,7 @@ keep their `?sslmode=require` suffix. This becomes `DATABASE_URL`.
   |-----|-------|
   | `NODE_ENV` | `production` |
   | `DATABASE_URL` | from step 1 |
-  | `CORS_ORIGIN` | your frontend URL, e.g. `https://siddhatva.com` |
+  | `CORS_ORIGINS` | comma-separated allowed frontend origins, e.g. `https://siddhatva.com,http://localhost:3000` |
   | `APP_URL` | your frontend URL (used in email links) |
   | `PUBLIC_URL` | your backend URL, e.g. `https://api.siddhatva.com` |
   | `TRUST_PROXY` | `true` (behind the host's proxy) |
@@ -127,7 +127,7 @@ not a real store. For production:
 
 ### 6. DNS + domain verification
 - Point your apex/`www` domain at the frontend host and an `api.` subdomain at the
-  backend host; then set `CORS_ORIGIN` / `APP_URL` / `VITE_API_URL` to the real domains
+  backend host; then set `CORS_ORIGINS` / `APP_URL` / `VITE_API_URL` to the real domains
   and redeploy.
 - Add the **Resend** SPF/DKIM/DMARC records (`RESEND.md`) — real email won't deliver
   until the domain shows **Verified**.
