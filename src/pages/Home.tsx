@@ -4,10 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Seo } from '../components/seo/Seo';
 import { ProductCard } from '../components/product/ProductCard';
+import { ProductCardSkeleton } from '../components/product/ProductCardSkeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 import { FadeInSection } from '../components/shared/FadeInSection';
 import { useCart } from '../context/CartContext';
-import { products } from '../data/products';
 import { getHomeContent, HomeContent } from '../api/site';
+import { getProducts } from '../api/products';
+import { queryKeys } from '../api/queryKeys';
 
 // CRITICAL FALLBACK: the current values, shipped as a static constant. Used
 // while loading, on fetch error, or if content is missing — the home page must
@@ -66,8 +69,16 @@ const CARD_STYLES = [
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const newArrivals = products.slice(0, 4);
   const heroBgRef = useRef<HTMLDivElement>(null);
+
+  // Real catalog data (not the static frontend fixture) — an empty catalog
+  // must show an empty state, never phantom demo products that 404 on click.
+  const newArrivalsParams = { pageSize: 4 };
+  const { data: newArrivalsData, isLoading: newArrivalsLoading } = useQuery({
+    queryKey: queryKeys.products(newArrivalsParams),
+    queryFn: () => getProducts(newArrivalsParams),
+  });
+  const newArrivals = newArrivalsData?.items ?? [];
 
   // Content is query-driven, but ALWAYS falls back to the static values so the
   // page (and especially the hero) can never render blank or broken.
@@ -147,22 +158,36 @@ export const HomePage: React.FC = () => {
             VIEW ALL <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
-          {newArrivals.map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              price={product.price}
-              image={product.images[0].src}
-              imageAlt={product.images[0].alt}
-              subtitle={product.variant}
-              badge={product.badge}
-              onViewDetails={() => navigate(`/product/${product.id}`)}
-              onAddToCart={() => addItem(product, product.colors[0], product.sizes[0])}
-            />
-          ))}
-        </div>
+        {newArrivalsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : newArrivals.length === 0 ? (
+          <EmptyState
+            icon="inventory_2"
+            title="New pieces are on their way"
+            description="Our atelier is preparing the next collection — check back soon."
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+            {newArrivals.map((product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                image={product.images[0].src}
+                imageAlt={product.images[0].alt}
+                subtitle={product.variant}
+                badge={product.badge}
+                onViewDetails={() => navigate(`/product/${product.id}`)}
+                onAddToCart={() => addItem(product, product.colors[0], product.sizes[0])}
+              />
+            ))}
+          </div>
+        )}
       </FadeInSection>
 
       {/* Philosophy */}
