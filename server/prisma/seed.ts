@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 // Seed from the frontend's mock data so the DB starts with the exact catalog
@@ -11,6 +12,66 @@ import { DEFAULT_HOME_CONTENT, HOME_KEY } from '../src/lib/homeContent';
 const prisma = new PrismaClient();
 
 type SeedProduct = (typeof products)[number];
+
+// ============================================================================
+// PRODUCTION GUARD — this script WIPES the whole catalog/order/user data and
+// replaces it with demo content. It must never run against a real database;
+// exactly that happened once already (the demo catalog reached production via
+// a stray local `npm run seed` while DATABASE_URL was pointed at Neon prod).
+//
+// Refuses when NODE_ENV=production, or when DATABASE_URL's host isn't
+// unmistakably local — unless --force-production is passed explicitly.
+// ============================================================================
+function assertSafeSeedTarget(): void {
+  if (process.argv.includes('--force-production')) {
+    // eslint-disable-next-line no-console
+    console.warn('⚠ --force-production passed — skipping the local-only seed guard.\n');
+    return;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    // eslint-disable-next-line no-console
+    console.error(
+      'Refusing to seed: NODE_ENV=production.\n' +
+        'This script deletes and replaces the entire catalog/order/user tables — ' +
+        'it must never run against production. Pass --force-production if you ' +
+        'truly mean to (you almost certainly do not).'
+    );
+    process.exit(1);
+  }
+
+  let host = '';
+  try {
+    host = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : '';
+  } catch {
+    // malformed/unparseable URL — falls through as unsafe below
+  }
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  if (!isLocal) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `Refusing to seed: DATABASE_URL host is "${host || '(unparseable)'}", not localhost.\n` +
+        'This script deletes and replaces the entire catalog/order/user tables — ' +
+        'it must only ever run against your local dev database. Pass ' +
+        '--force-production if you truly mean to target this host (you almost ' +
+        'certainly do not).'
+    );
+    process.exit(1);
+  }
+}
+
+assertSafeSeedTarget();
+
+// Seed account passwords. Read from env for a deterministic value (the e2e
+// suite + CI set SEED_ADMIN_PASSWORD/SEED_CUSTOMER_PASSWORD — see
+// playwright.config.ts and .github/workflows/ci.yml); otherwise generate a
+// random one per run and print it once below. Never hardcode a password here —
+// a fixed one (admin1234/customer1234) previously leaked into production docs
+// via this exact script.
+function resolveSeedPassword(envVar: string): { password: string; generated: boolean } {
+  const fromEnv = process.env[envVar];
+  if (fromEnv) return { password: fromEnv, generated: false };
+  return { password: crypto.randomBytes(9).toString('base64url'), generated: true };
+}
 
 function buildVariants(p: SeedProduct) {
   // Colour × size combinations (colour-major so distinct colours/sizes come out
@@ -47,11 +108,14 @@ async function main() {
 
   // Seed one ADMIN and one CUSTOMER. The existing order/wishlist history below
   // belongs to the customer, so the two accounts demonstrably see different data.
+  const adminCreds = resolveSeedPassword('SEED_ADMIN_PASSWORD');
+  const customerCreds = resolveSeedPassword('SEED_CUSTOMER_PASSWORD');
+
   await prisma.user.create({
     data: {
       email: 'admin@siddhatva.com',
       name: 'Admin Sterling',
-      password: bcrypt.hashSync('admin1234', 10),
+      password: bcrypt.hashSync(adminCreds.password, 10),
       role: 'ADMIN',
     },
   });
@@ -59,7 +123,7 @@ async function main() {
     data: {
       email: 'customer@siddhatva.com',
       name: 'Alexander Sterling',
-      password: bcrypt.hashSync('customer1234', 10),
+      password: bcrypt.hashSync(customerCreds.password, 10),
       role: 'CUSTOMER',
     },
   });
@@ -151,7 +215,19 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log(
-    `Seed complete — ${products.length} products, ${seedOrders.length} orders, 3 wishlist items, home content.`
+    `Seed complete — ${products.length} products, ${seedOrders.length} orders, 3 wishlist items, home content.\n`
+  );
+  // eslint-disable-next-line no-console
+  console.log('Seed account credentials:');
+  // eslint-disable-next-line no-console
+  console.log(
+    `  admin@siddhatva.com    / ${adminCreds.password}` +
+      (adminCreds.generated ? '  (generated — not stored anywhere, save it now)' : '  (from SEED_ADMIN_PASSWORD)')
+  );
+  // eslint-disable-next-line no-console
+  console.log(
+    `  customer@siddhatva.com / ${customerCreds.password}` +
+      (customerCreds.generated ? '  (generated — not stored anywhere, save it now)' : '  (from SEED_CUSTOMER_PASSWORD)')
   );
 }
 

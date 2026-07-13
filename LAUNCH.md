@@ -125,6 +125,13 @@ not a real store. For production:
    `UPDATE "User" SET role = 'ADMIN' WHERE email = 'you@yourdomain.com';`
 3. Add real products via the admin product form (prices set individually, in ₹).
 
+`prisma/seed.ts` itself now refuses to run unless `DATABASE_URL`'s host is
+`localhost`/`127.0.0.1` (or `NODE_ENV=production` is set) — a hardcoded local
+`.env` accidentally left pointed at production reached exactly this failure mode
+once already. Never point a local `.env` at a production `DATABASE_URL`; if you
+must run an ad-hoc query against prod, use a throwaway shell env var, not the
+checked-in-shape `server/.env` file, and never run `npm run seed` in that state.
+
 ### 6. DNS + domain verification
 - Point your apex/`www` domain at the frontend host and an `api.` subdomain at the
   backend host; then set `CORS_ORIGINS` / `APP_URL` / `VITE_API_URL` to the real domains
