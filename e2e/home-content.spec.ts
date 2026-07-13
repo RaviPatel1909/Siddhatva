@@ -1,11 +1,10 @@
 import { test, expect, Page } from '@playwright/test';
+import { ADMIN } from './testCredentials';
 
 // Editable home content: an admin edit persists to the storefront, and the home
 // page renders its static fallback if the content API fails (never blank).
 //
 // Prerequisite: seeded database (see e2e/README.md).
-
-const ADMIN = { email: 'admin@siddhatva.com', password: 'admin1234' };
 
 async function loginAdmin(page: Page): Promise<void> {
   await page.goto('/login');

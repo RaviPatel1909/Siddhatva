@@ -1,4 +1,5 @@
 import { test, expect, request, APIRequestContext } from '@playwright/test';
+import { ADMIN, CUSTOMER } from './testCredentials';
 
 // Every /admin route must reject the unauthenticated (401) and non-admins (403).
 // This guards the requireAuth → requireAdmin gating across the whole surface.
@@ -30,7 +31,7 @@ const ADMIN_ROUTES: { method: Method; path: string; data?: unknown }[] = [
 
 test('every /admin route rejects the unauthenticated (401) and customers (403)', async () => {
   const rc = await request.newContext();
-  const customerToken = await login(rc, 'customer@siddhatva.com', 'customer1234');
+  const customerToken = await login(rc, CUSTOMER.email, CUSTOMER.password);
 
   for (const r of ADMIN_ROUTES) {
     const label = `${r.method.toUpperCase()} ${r.path}`;
@@ -46,7 +47,7 @@ test('every /admin route rejects the unauthenticated (401) and customers (403)',
   }
 
   // Sanity: the admin CAN reach a representative route (gating isn't blanket-deny).
-  const adminToken = await login(rc, 'admin@siddhatva.com', 'admin1234');
+  const adminToken = await login(rc, ADMIN.email, ADMIN.password);
   const adminOk = await rc.get(`${API}/admin/orders`, {
     headers: { Authorization: `Bearer ${adminToken}` },
   });

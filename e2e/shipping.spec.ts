@@ -1,4 +1,5 @@
 import { test, expect, request, APIRequestContext } from '@playwright/test';
+import { ADMIN, CUSTOMER } from './testCredentials';
 
 // Shipping (Shiprocket) exercised at the mock-provider boundary: admin creates a
 // shipment on a PAID order, and the tracking webhook (the source of truth) drives
@@ -46,8 +47,8 @@ const trackingWebhook = (rc: APIRequestContext, awb: string, status: string, tok
 
 test('admin ships a PAID order; tracking webhook advances it to delivered (idempotent)', async () => {
   const rc = await request.newContext();
-  const custToken = await login(rc, 'customer@siddhatva.com', 'customer1234');
-  const adminToken = await login(rc, 'admin@siddhatva.com', 'admin1234');
+  const custToken = await login(rc, CUSTOMER.email, CUSTOMER.password);
+  const adminToken = await login(rc, ADMIN.email, ADMIN.password);
 
   const order = await createOrder(rc, custToken);
   await payOrder(rc, custToken, order.id);
@@ -94,8 +95,8 @@ test('admin ships a PAID order; tracking webhook advances it to delivered (idemp
 
 test('shipping a non-paid order is blocked (409)', async () => {
   const rc = await request.newContext();
-  const custToken = await login(rc, 'customer@siddhatva.com', 'customer1234');
-  const adminToken = await login(rc, 'admin@siddhatva.com', 'admin1234');
+  const custToken = await login(rc, CUSTOMER.email, CUSTOMER.password);
+  const adminToken = await login(rc, ADMIN.email, ADMIN.password);
 
   const order = await createOrder(rc, custToken); // PENDING (unpaid)
   const res = await rc.post(`${API}/admin/orders/${order.id}/ship`, { headers: authHeaders(adminToken) });

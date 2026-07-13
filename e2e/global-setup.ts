@@ -1,3 +1,5 @@
+import { CUSTOMER } from './testCredentials';
+
 // Verifies the prerequisite: the API is reachable and the database is seeded
 // (the standard `customer@siddhatva.com` account exists). Polls so it works
 // whether the API is already up or the webServer is still starting it.
@@ -14,7 +16,7 @@ async function globalSetup(): Promise<void> {
       const res = await fetch('http://localhost:4000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'customer@siddhatva.com', password: 'customer1234' }),
+        body: JSON.stringify({ email: CUSTOMER.email, password: CUSTOMER.password }),
       });
       if (res.ok) return; // API up + seeded
       if (res.status === 401) {

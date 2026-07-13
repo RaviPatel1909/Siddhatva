@@ -73,6 +73,12 @@ jobs:
       # Point the frontend dev server at the real API (default would be MSW).
       VITE_API_URL: http://localhost:4000/api
       CORS_ORIGIN: http://localhost:3000
+      # Deterministic seed passwords — CI-only fixtures against an ephemeral,
+      # network-isolated container that's destroyed after this run. Read by both
+      # `npm run seed` and the e2e suite (e2e/testCredentials.ts); see
+      # server/.env.example.
+      SEED_ADMIN_PASSWORD: e2e-fixture-admin-pw
+      SEED_CUSTOMER_PASSWORD: e2e-fixture-customer-pw
 
     steps:
       - uses: actions/checkout@v4

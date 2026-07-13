@@ -1,5 +1,6 @@
 import { test, expect, request, APIRequestContext } from '@playwright/test';
 import crypto from 'node:crypto';
+import { CUSTOMER } from './testCredentials';
 
 // Payment verification + webhook, exercised at the mock gateway boundary. The
 // signature paths are identical to real Razorpay mode.
@@ -15,7 +16,7 @@ const webhookSig = (body: string) =>
 
 async function login(rc: APIRequestContext): Promise<string> {
   const res = await rc.post(`${API}/auth/login`, {
-    data: { email: 'customer@siddhatva.com', password: 'customer1234' },
+    data: { email: CUSTOMER.email, password: CUSTOMER.password },
   });
   return (await res.json()).accessToken as string;
 }

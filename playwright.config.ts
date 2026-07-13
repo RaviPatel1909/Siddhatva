@@ -1,4 +1,12 @@
+import { config as loadEnv } from 'dotenv';
 import { defineConfig, devices } from '@playwright/test';
+
+// Load server/.env so SEED_ADMIN_PASSWORD / SEED_CUSTOMER_PASSWORD (which
+// `npm run seed` also reads) are visible here — see e2e/testCredentials.ts.
+// Runs before any spec file is collected, so process.env is populated for the
+// whole run. In CI these vars come from the workflow env instead (already set
+// by the time this loads; dotenv never overrides existing process.env values).
+loadEnv({ path: 'server/.env' });
 
 // Standing end-to-end suite. Requires a seeded database — the embedded Postgres
 // must be running and `npm run seed` applied (see e2e/README.md). The frontend

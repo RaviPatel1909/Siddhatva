@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { CUSTOMER } from './testCredentials';
 
 // Regression guard for cross-account data isolation — the class of bug fixed in
 // ad502fe, where one account's wishlist leaked into the next account to log in
@@ -6,8 +7,6 @@ import { test, expect, Page } from '@playwright/test';
 //
 // Prerequisite: a seeded database (see e2e/README.md). The `customer` account
 // has wishlist items + orders; fresh accounts are registered per run.
-
-const CUSTOMER = { email: 'customer@siddhatva.com', password: 'customer1234' };
 
 // A product that is NOT in the customer's seeded wishlist (7, 8, 9), so we can
 // prove a guest-merged item doesn't bleed into the customer's list.
