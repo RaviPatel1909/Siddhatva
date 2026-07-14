@@ -66,6 +66,23 @@ Encoded in `tailwind.config.js` + `src/index.css`. Use the tokens, never raw val
 - End every commit body with the `Co-Authored-By` trailer.
 - Do not push or add a remote unless explicitly asked (none is configured).
 
+## Dependencies & lockfiles — regenerate, commit, verify with `npm ci`
+
+Both packages carry their own lockfile (`package-lock.json` at the root and in
+`/server`). CI installs with **`npm ci`**, which builds strictly from the lockfile
+and **fails the whole run** on any drift between a `package.json` and its lockfile.
+
+- **Any dependency change** (add, remove, or bump anything in either `package.json`)
+  **must regenerate and commit that package's lockfile in the same change.** A
+  dependency edit without its lockfile update is an incomplete commit.
+- **Verify with `npm ci`, never `npm install`, before pushing.** `npm install` is
+  lenient — it silently reconciles drift locally, masking exactly the desync that
+  `npm ci` (and therefore CI) rejects with `EUSAGE … not in sync`. From a clean
+  state, run `npm ci` in whichever package you touched (root and/or `/server`) and
+  confirm it exits 0. This is the check that actually matters.
+- Precedent: the `@types/node` ERESOLVE break (`a77b35f`) passed `npm install`
+  locally and only surfaced under CI's `npm ci`. Don't relearn it.
+
 ## Verification — required after any change
 
 Not optional. After a change, before considering it done:
