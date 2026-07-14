@@ -64,7 +64,9 @@ Encoded in `tailwind.config.js` + `src/index.css`. Use the tokens, never raw val
 - **No squash.** **Branch-per-phase**, merged forward.
 - Bugs found during verification get their own `fix(...)` commit.
 - End every commit body with the `Co-Authored-By` trailer.
-- Do not push or add a remote unless explicitly asked (none is configured).
+- Do not push unless explicitly asked. Remote `origin`
+  (`github.com/RaviPatel1909/Siddhatva`) is configured and **CI runs on every push
+  to `main`** (`.github/workflows/ci.yml`).
 
 ## Dependencies & lockfiles — regenerate, commit, verify with `npm ci`
 
@@ -90,8 +92,9 @@ Not optional. After a change, before considering it done:
 1. **Typecheck + build pass on BOTH `/server` and the frontend.**
 2. **Playwright at 375 and 1280** for any user-facing flow you touched.
 3. **Re-verify the full purchase flow at both widths each phase.**
-4. **Keep all 9 standing e2e specs green** (`e2e/` — auth-isolation, admin-access,
-   home-content, payments). Run with the stack up + DB seeded: `npm run test:e2e`.
+4. **Keep all 14 standing e2e specs green** (`e2e/` — auth-isolation, admin-access,
+   home-content, payments, shipping, password-reset). Run with the stack up + DB
+   seeded: `npm run test:e2e`.
 
 ## Test discipline
 
