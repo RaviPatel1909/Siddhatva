@@ -26,16 +26,6 @@ jobs:
             package-lock.json
             server/package-lock.json
 
-      # TEMP diagnostic — emit the runner's node/npm and the npm ci sync error as
-      # annotations (readable via api.github.com; the raw-log CDN is unreachable
-      # from the dev box). Remove once the mismatch is fixed.
-      - name: Toolchain + lockfile diagnostic
-        run: |
-          echo "::warning title=runner-toolchain::node=$(node -v) npm=$(npm -v) npmpath=$(command -v npm)"
-          node -v; npm -v
-          ERR="$( (npm ci 2>&1 || true) | grep -iE 'picomatch|Missing|Invalid|not in sync|EUSAGE|npm error' | head -10 | tr '\n' '~' || true )"
-          echo "::warning title=npm-ci-error::${ERR:-none}"
-
       # Frontend
       - name: Install (frontend)
         run: npm ci

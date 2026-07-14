@@ -82,8 +82,17 @@ and **fails the whole run** on any drift between a `package.json` and its lockfi
   `npm ci` (and therefore CI) rejects with `EUSAGE … not in sync`. From a clean
   state, run `npm ci` in whichever package you touched (root and/or `/server`) and
   confirm it exits 0. This is the check that actually matters.
-- Precedent: the `@types/node` ERESOLVE break (`a77b35f`) passed `npm install`
-  locally and only surfaced under CI's `npm ci`. Don't relearn it.
+- **Lockfile hoisting is platform-sensitive — CI runs on Linux.** `npm ci` can
+  pass locally on Windows/macOS yet fail on the Linux runner (or vice-versa),
+  because npm hoists shared transitive subtrees differently per platform. A green
+  local `npm ci` is necessary but **not sufficient** — the runner is the source of
+  truth. When a lockfile passes locally but reddens CI with a `Missing:`/`Invalid:`
+  sync error, regenerate the lockfile **on Linux** (CI, a container, or WSL), not
+  by re-running `npm install` on Windows (which reproduces the same platform tree).
+- Precedents, don't relearn them: the `@types/node` ERESOLVE break (`a77b35f`)
+  passed `npm install` but not CI's `npm ci`; a Windows-generated lockfile passed
+  `npm ci` locally but failed it on the Linux runner over picomatch/`fdir` hoisting
+  (`b9b1704`), fixed by regenerating the lockfiles on Linux.
 
 ## Verification — required after any change
 
