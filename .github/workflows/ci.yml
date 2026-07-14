@@ -26,6 +26,17 @@ jobs:
             package-lock.json
             server/package-lock.json
 
+      # TEMP diagnostic — measure the runner's actual node/npm and capture the
+      # full npm ci sync error in one place. Remove once the mismatch is fixed.
+      - name: Toolchain + lockfile diagnostic
+        run: |
+          echo "=== versions ==="
+          node -v
+          npm -v
+          echo "npm path: $(command -v npm)"
+          echo "=== npm ci (root, non-fatal, full error) ==="
+          npm ci 2>&1 | head -60 || true
+
       # Frontend
       - name: Install (frontend)
         run: npm ci
