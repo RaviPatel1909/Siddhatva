@@ -86,13 +86,22 @@ and **fails the whole run** on any drift between a `package.json` and its lockfi
   pass locally on Windows/macOS yet fail on the Linux runner (or vice-versa),
   because npm hoists shared transitive subtrees differently per platform. A green
   local `npm ci` is necessary but **not sufficient** — the runner is the source of
-  truth. When a lockfile passes locally but reddens CI with a `Missing:`/`Invalid:`
-  sync error, regenerate the lockfile **on Linux** (CI, a container, or WSL), not
-  by re-running `npm install` on Windows (which reproduces the same platform tree).
+  truth. The root `package.json` **`overrides`** block pins `picomatch` to a single
+  version precisely to kill one such divergence (the `fdir@6.5.0` optional peer that
+  split picomatch@2-vs-@4 hoisting): `npm install` now yields the **same** root
+  lockfile on Windows and Linux — proven invariant on both — so it no longer drifts.
+  Don't remove that pin without re-proving invariance. If a **new** dependency
+  introduces a similar cross-platform split, regenerate the lockfile **on Linux**
+  (CI, a container, or WSL) — re-running `npm install` on Windows just reproduces the
+  Windows tree — and consider extending `overrides`. (Note: `/server` has no such
+  pin; its committed lockfile is Linux-generated and accepted by `npm ci` on both,
+  but a Windows `npm install` there can still re-diverge it — regenerate on Linux.)
 - Precedents, don't relearn them: the `@types/node` ERESOLVE break (`a77b35f`)
   passed `npm install` but not CI's `npm ci`; a Windows-generated lockfile passed
   `npm ci` locally but failed it on the Linux runner over picomatch/`fdir` hoisting
-  (`b9b1704`), fixed by regenerating the lockfiles on Linux.
+  (`b9b1704`), now hardened by a single-version `picomatch` `overrides` pin proven
+  platform-invariant on Windows and Linux (`npm ci` green + `npm install` no-drift
+  on both, CSS build byte-identical, 14 e2e green).
 
 ## Verification — required after any change
 
