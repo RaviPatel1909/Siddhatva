@@ -398,7 +398,7 @@ All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
 | Endpoint | Body | Success | Notes |
 |----------|------|---------|-------|
 | `GET /admin/orders` | — | `200 OrderListResponse` | every order across all customers |
-| `GET /admin/stats` | — | `200 { totalOrders, totalRevenue, totalProducts, totalCustomers }` | |
+| `GET /admin/stats` | — | `200 AdminStats` | real dashboard aggregates (see below); revenue counts **PAID** orders only |
 | `PATCH /admin/orders/:id/status` | `{ status }` | `200 Order` | validates transitions (processing→shipped→delivered, →cancelled; terminal states → `422`) |
 | `GET /admin/products/:id` | — | `200 AdminProduct` | full editable shape: variant matrix + raw image `url`/`publicId` |
 | `POST /admin/products` | `ProductInput` | `201 ApiProduct` | |
@@ -420,6 +420,19 @@ interface ProductInput {
   sizes: string[];
   variants: { colorId: string; size: string; stock: number }[]; // the colour×size matrix
   images: { url: string; publicId?: string | null; alt?: string }[]; // [0] is primary
+}
+
+interface AdminStats {
+  revenue: number;        // sum of `total` for PAID orders (whole INR rupees)
+  orders: number;         // count of all orders
+  paidOrders: number;     // count of PAID orders
+  customers: number;      // count of users with role CUSTOMER
+  avgOrderValue: number;  // revenue / paidOrders (0 when no paid orders)
+  products: number;       // count of products
+  lowStock: number;       // variants with 0 < stock <= 5
+  outOfStock: number;     // variants with stock === 0
+  reviews: number;        // count of reviews
+  salesByMonth: { month: string; revenue: number }[]; // last 6 months, oldest first
 }
 ```
 

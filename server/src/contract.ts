@@ -127,3 +127,19 @@ export interface OrderListResponse {
 export interface WishlistResponse {
   items: ApiProduct[];
 }
+
+// Admin dashboard aggregates — all computed live from the DB. Money is whole INR
+// rupees (revenue = sum of PAID orders only). `salesByMonth` is the last months
+// oldest→newest, each { month: 'JAN', revenue } for the paid-revenue chart.
+export interface AdminStats {
+  revenue: number;
+  orders: number;
+  paidOrders: number;
+  customers: number;
+  avgOrderValue: number;
+  products: number;
+  lowStock: number;
+  outOfStock: number;
+  reviews: number;
+  salesByMonth: { month: string; revenue: number }[];
+}

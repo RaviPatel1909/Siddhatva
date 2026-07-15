@@ -4,11 +4,19 @@ import { ApiOrder, ApiProduct, OrderListResponse } from './types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+// Real dashboard aggregates (mirrors server/src/contract.ts AdminStats).
+// Money is whole INR rupees; revenue counts PAID orders only.
 export interface AdminStats {
-  totalOrders: number;
-  totalRevenue: number;
-  totalProducts: number;
-  totalCustomers: number;
+  revenue: number;
+  orders: number;
+  paidOrders: number;
+  customers: number;
+  avgOrderValue: number;
+  products: number;
+  lowStock: number;
+  outOfStock: number;
+  reviews: number;
+  salesByMonth: { month: string; revenue: number }[];
 }
 
 // GET /admin/orders — every order across all customers (ADMIN only).

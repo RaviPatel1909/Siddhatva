@@ -4,7 +4,7 @@ import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { orderInclude, toApiOrder } from '../lib/mappers';
-import { OrderListResponse } from '../contract';
+import { AdminStats, OrderListResponse } from '../contract';
 import { imageStore, LocalImageStore } from '../lib/imageStore';
 import { adminProductsRouter } from './adminProducts';
 import { orderStatusBody, homeContentSchema } from '../schemas';
@@ -122,21 +122,67 @@ adminRouter.get(
   })
 );
 
-// GET /admin/stats — dashboard KPIs.
+// A variant at or below this stock count (but not zero) is "low stock".
+const LOW_STOCK_THRESHOLD = 5;
+// How many trailing months the sales chart covers.
+const SALES_MONTHS = 6;
+const MONTH_LABELS = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+];
+
+// Bucket paid-order revenue into the last `count` calendar months (oldest first).
+// Empty months stay at 0 so a new store charts a real, mostly-flat baseline.
+function buildSalesByMonth(
+  orders: { total: number; createdAt: Date }[],
+  count: number
+): AdminStats['salesByMonth'] {
+  const now = new Date();
+  const buckets = Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - i), 1);
+    return { year: d.getFullYear(), month: d.getMonth(), revenue: 0 };
+  });
+  for (const o of orders) {
+    const bucket = buckets.find(
+      (b) => b.year === o.createdAt.getFullYear() && b.month === o.createdAt.getMonth()
+    );
+    if (bucket) bucket.revenue += o.total;
+  }
+  return buckets.map((b) => ({ month: MONTH_LABELS[b.month], revenue: Math.round(b.revenue) }));
+}
+
+// GET /admin/stats — real dashboard aggregates. Revenue counts PAID orders only.
 adminRouter.get(
   '/stats',
   asyncHandler(async (_req, res) => {
-    const [orderCount, revenue, productCount, customerCount] = await Promise.all([
-      prisma.order.count(),
-      prisma.order.aggregate({ _sum: { total: true } }),
-      prisma.product.count(),
-      prisma.user.count({ where: { role: 'CUSTOMER' } }),
-    ]);
-    res.json({
-      totalOrders: orderCount,
-      totalRevenue: revenue._sum.total ?? 0,
-      totalProducts: productCount,
-      totalCustomers: customerCount,
-    });
+    const [orders, paidAgg, paidOrders, customers, products, lowStock, outOfStock, reviews, paidForChart] =
+      await Promise.all([
+        prisma.order.count(),
+        prisma.order.aggregate({ _sum: { total: true }, where: { paymentStatus: 'PAID' } }),
+        prisma.order.count({ where: { paymentStatus: 'PAID' } }),
+        prisma.user.count({ where: { role: 'CUSTOMER' } }),
+        prisma.product.count(),
+        prisma.variant.count({ where: { stock: { gt: 0, lte: LOW_STOCK_THRESHOLD } } }),
+        prisma.variant.count({ where: { stock: 0 } }),
+        prisma.review.count(),
+        prisma.order.findMany({
+          where: { paymentStatus: 'PAID' },
+          select: { total: true, createdAt: true },
+        }),
+      ]);
+
+    const revenue = Math.round(paidAgg._sum.total ?? 0);
+    const stats: AdminStats = {
+      revenue,
+      orders,
+      paidOrders,
+      customers,
+      avgOrderValue: paidOrders > 0 ? Math.round(revenue / paidOrders) : 0,
+      products,
+      lowStock,
+      outOfStock,
+      reviews,
+      salesByMonth: buildSalesByMonth(paidForChart, SALES_MONTHS),
+    };
+    res.json(stats);
   })
 );
