@@ -12,6 +12,11 @@ const corsOrigins = (process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? 'htt
   .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
+// The obvious dev-only JWT signing secret. Fine for localhost; a production boot
+// with this value (or none) is refused by assertProductionSecrets() below, because
+// it's public in the repo and access tokens carry the admin role.
+const DEV_JWT_FALLBACK = 'dev-only-access-secret-change-me';
+
 export const env = {
   port,
   corsOrigins,
@@ -26,8 +31,9 @@ export const env = {
   // Defaults to the first allowed CORS origin (the storefront).
   appUrl: process.env.APP_URL ?? corsOrigins[0] ?? 'http://localhost:3000',
 
-  // Auth. Secrets MUST be set in production; the dev fallbacks are obvious.
-  jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-only-access-secret-change-me',
+  // Auth. Secrets MUST be set in production; the dev fallback is obvious and is
+  // enforced by assertProductionSecrets() (called at boot in index.ts).
+  jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? DEV_JWT_FALLBACK,
   accessTtlSeconds: Number(process.env.ACCESS_TTL_SECONDS ?? 15 * 60), // 15 minutes
   refreshTtlDays: Number(process.env.REFRESH_TTL_DAYS ?? 7),
 
@@ -70,3 +76,42 @@ export const env = {
     webhookToken: process.env.SHIPROCKET_WEBHOOK_TOKEN ?? '',
   },
 };
+
+// ============================================================================
+// PRODUCTION SECRET GUARD — access tokens are JWTs that carry the user's role,
+// and requireAdmin trusts that claim without a DB check. So if the signing secret
+// is missing, the public dev fallback, or trivially short in production, ANYONE
+// could forge a `role: ADMIN` token and bypass every /admin/* gate. Refuse to
+// boot rather than run wide open. (Refresh tokens need no guard here — they are
+// random 48-byte strings stored hashed, not signed with a secret.)
+//
+// Same shape as the seed / embedded-DB guards: called explicitly at startup
+// (index.ts), only bites under NODE_ENV=production, dev stays untouched.
+// ============================================================================
+const MIN_SECRET_LENGTH = 32;
+
+export function assertProductionSecrets(): void {
+  if (!env.isProd) return;
+
+  const secret = process.env.JWT_ACCESS_SECRET;
+  let problem: string | null = null;
+  if (!secret) {
+    problem = 'JWT_ACCESS_SECRET is not set.';
+  } else if (secret === DEV_JWT_FALLBACK) {
+    problem = 'JWT_ACCESS_SECRET is still the public dev fallback value.';
+  } else if (secret.length < MIN_SECRET_LENGTH) {
+    problem = `JWT_ACCESS_SECRET is too short (${secret.length} chars; need at least ${MIN_SECRET_LENGTH}).`;
+  }
+
+  if (problem) {
+    // eslint-disable-next-line no-console
+    console.error(
+      'Refusing to start: insecure JWT signing secret in production.\n' +
+        `  - ${problem}\n` +
+        'Access tokens carry the admin role and are trusted by requireAdmin, so a ' +
+        'weak or repo-visible secret lets anyone forge an admin session. Set a strong, ' +
+        'random JWT_ACCESS_SECRET (e.g. `openssl rand -hex 32`) in the environment and redeploy.'
+    );
+    process.exit(1);
+  }
+}

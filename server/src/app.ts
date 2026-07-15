@@ -5,6 +5,8 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import { env } from './env';
 import { errorHandler, notFound } from './middleware/error';
+import { rateLimit } from './middleware/rateLimit';
+import { securityHeaders } from './middleware/securityHeaders';
 import { authRouter } from './routes/auth';
 import { productsRouter } from './routes/products';
 import { ordersRouter } from './routes/orders';
@@ -16,6 +18,13 @@ import { shiprocketWebhookRouter } from './routes/shiprocketWebhook';
 
 export function createApp() {
   const app = express();
+
+  // Don't advertise the framework.
+  app.disable('x-powered-by');
+
+  // Standard security headers on every response (nosniff / frame-deny / referrer
+  // / HSTS-in-prod). See middleware/securityHeaders.ts.
+  app.use(securityHeaders);
 
   // Behind a trusted proxy/CDN (prod), trust X-Forwarded-* so req.ip is the real
   // client IP (used by the rate limiter). Off in local dev (no proxy).
@@ -34,6 +43,12 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use(morgan('dev'));
+
+  // Coarse per-IP flood backstop for the API. Deliberately loose — the tight
+  // per-endpoint limits (login/register/checkout/password-reset) are the real
+  // controls; this only catches runaway floods. Mounted after the webhook routes
+  // above, so provider webhook retries are never rate-limited.
+  app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 2000, name: 'global' }));
 
   // Local dev image store: serve uploaded files (no-op in Cloudinary mode).
   app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));

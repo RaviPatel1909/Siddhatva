@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { requireAuth } from '../middleware/auth';
+import { rateLimit } from '../middleware/rateLimit';
 import { createOrderBody, paymentVerifyBody } from '../schemas';
 import { orderInclude, toApiOrder } from '../lib/mappers';
 import { OrderListResponse } from '../contract';
@@ -31,6 +32,9 @@ ordersRouter.get(
 // POST /orders — create an order for the authenticated user (payment PENDING).
 ordersRouter.post(
   '/',
+  // Cap order-creation abuse per IP (already auth-gated). Headroom above the e2e
+  // suite, which creates a number of orders from one IP per run.
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 60, name: 'checkout' }),
   asyncHandler(async (req, res) => {
     const input = createOrderBody.parse(req.body);
     const id = input.id ?? `SID-${Math.floor(10000 + Math.random() * 89999)}`;

@@ -63,6 +63,9 @@ async function issueSession(res: Response, user: { id: string; role: Role }): Pr
 // POST /auth/register
 authRouter.post(
   '/register',
+  // Cap account-creation abuse per IP. Loose enough for real signups (and the
+  // e2e suite, which registers a few accounts from one IP per run).
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'register' }),
   asyncHandler(async (req, res) => {
     const { email, name, password } = registerBody.parse(req.body);
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -79,6 +82,10 @@ authRouter.post(
 // POST /auth/login
 authRouter.post(
   '/login',
+  // Brute-force / credential-stuffing backstop per IP. Admin logs in here too.
+  // bcrypt already makes online guessing slow; this caps it hard. Headroom kept
+  // above the e2e suite's many logins-from-one-IP so it stays green (not flaky).
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 50, name: 'login' }),
   asyncHandler(async (req, res) => {
     const { email, password } = loginBody.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
