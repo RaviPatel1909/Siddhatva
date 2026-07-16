@@ -1,7 +1,7 @@
 import { apiFetch, buildQuery } from './client';
 import { ApiProduct, ProductListParams, ProductListResponse } from './types';
 
-// GET /products?category&color&size&sort&page&pageSize
+// GET /products?q&category&color&size&sort&page&pageSize
 export function getProducts(params: ProductListParams = {}): Promise<ProductListResponse> {
   return apiFetch<ProductListResponse>(`/products${buildQuery({ ...params })}`);
 }

@@ -12,6 +12,7 @@ export type ApiProduct = Product & { slug: string };
 export type ProductSortOption = 'featured' | 'price-asc' | 'price-desc';
 
 export interface ProductListParams {
+  q?: string;
   category?: string;
   color?: string;
   size?: string;

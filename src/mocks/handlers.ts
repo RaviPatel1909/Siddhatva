@@ -105,6 +105,7 @@ export const handlers = [
     if (shouldFail('products')) return fail();
     await mockDelay();
     const url = new URL(request.url);
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
     const category = url.searchParams.get('category');
     const color = url.searchParams.get('color');
     const size = url.searchParams.get('size');
@@ -113,10 +114,13 @@ export const handlers = [
     const pageSize = Math.max(1, Number(url.searchParams.get('pageSize') ?? 8));
 
     let list = products.filter((p) => {
+      // q: case-insensitive substring on name OR category (parity with admin search).
+      const matchesQuery =
+        !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
       const matchesCategory = !category || p.category === category;
       const matchesColor = !color || p.colors.some((c) => c.id === color);
       const matchesSize = !size || p.sizes.includes(size);
-      return matchesCategory && matchesColor && matchesSize;
+      return matchesQuery && matchesCategory && matchesColor && matchesSize;
     });
     if (sort === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
     if (sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);

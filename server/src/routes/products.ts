@@ -22,11 +22,15 @@ productsRouter.get(
       orderBy: { position: 'asc' },
     });
 
+    // q: case-insensitive substring on name OR category (parity with admin search).
+    const needle = q.q?.trim().toLowerCase();
     let list = all.filter((p) => {
+      const matchesQuery =
+        !needle || p.name.toLowerCase().includes(needle) || p.category.name.toLowerCase().includes(needle);
       const matchesCategory = !q.category || p.category.name === q.category;
       const matchesColor = !q.color || p.variants.some((v) => v.colorId === q.color);
       const matchesSize = !q.size || p.variants.some((v) => v.size === q.size);
-      return matchesCategory && matchesColor && matchesSize;
+      return matchesQuery && matchesCategory && matchesColor && matchesSize;
     });
     if (q.sort === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
     if (q.sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);

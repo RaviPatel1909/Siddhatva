@@ -170,6 +170,7 @@ List catalog products with filtering, sorting, pagination, and facets.
 
 | Param      | Type   | Default    | Semantics |
 |------------|--------|------------|-----------|
+| `q`        | string | (none)     | Free-text search. Case-insensitive **substring** match on `product.name` **OR** `product.category` (mirrors admin search's product scope). Category-independent — searches the whole catalog. Blank/whitespace-only → treated as absent. |
 | `category` | string | (none)     | Exact match on `product.category`. e.g. `Men` → the 5 Men products. |
 | `color`    | string | (none)     | Match if **any** of `product.colors` has `id === color`. |
 | `size`     | string | (none)     | Match if `product.sizes` **includes** the exact value. |
@@ -177,7 +178,7 @@ List catalog products with filtering, sorting, pagination, and facets.
 | `page`     | number | `1`        | 1-based page index; values `< 1` are clamped to `1`. |
 | `pageSize` | number | `8`        | Items per page; values `< 1` are clamped to `1`. |
 
-**Filtering:** the three filters combine with **AND**. Unknown params are ignored.
+**Filtering:** `q` and the three filters all combine with **AND** (e.g. `q=blazer&category=Men` → products whose name/category matches "blazer" *and* are in `Men`). Unknown params are ignored.
 
 **Pagination:** applied **after** filter + sort. `total` is the filtered count
 (before slicing). `items = filtered[(page-1)*pageSize : page*pageSize]`.
