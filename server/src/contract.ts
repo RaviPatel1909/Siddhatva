@@ -143,3 +143,11 @@ export interface AdminStats {
   reviews: number;
   salesByMonth: { month: string; revenue: number }[];
 }
+
+// Grouped results for the admin topbar search. Each item is minimal — just what a
+// dropdown row renders plus the `id` needed to navigate. Each group ≤ 5 rows.
+export interface AdminSearchResults {
+  products: { id: string; name: string; sublabel: string }[]; // sublabel = category name
+  orders: { id: string; label: string; sublabel: string }[]; // label = order id; sublabel = `${customerName} · ${status}`
+  customers: { id: string; name: string; email: string }[];
+}

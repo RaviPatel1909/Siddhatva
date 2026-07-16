@@ -6,4 +6,5 @@ export const queryKeys = {
   product: (idOrSlug: string) => ['product', idOrSlug] as const,
   orders: () => ['orders'] as const,
   wishlist: () => ['wishlist'] as const,
+  adminSearch: (q: string) => ['admin', 'search', q] as const,
 };

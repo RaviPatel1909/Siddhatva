@@ -9,6 +9,7 @@ import {
   ProductListResponse,
   WishlistResponse,
 } from '../api/types';
+import type { AdminSearchResults } from '../api/admin';
 
 // Mock reference implementation of the API contract (src/api/types.ts). Phase 3's
 // Express server implements these routes verbatim. Backed by src/data.
@@ -59,6 +60,27 @@ const readPersisted = <T>(key: string): T | null => {
 
 const fail = (message = 'Simulated server error') =>
   HttpResponse.json({ message }, { status: 500 });
+
+// Admin search parity with server/src/routes/admin.ts: shortest query that filters,
+// and the per-group result cap.
+const SEARCH_MIN_CHARS = 2;
+const SEARCH_GROUP_LIMIT = 5;
+
+// No standalone customer fixture exists — the only mock data is products + orders
+// (src/data). Mock customers are therefore derived from the people who placed the
+// seed orders (unique by name), with a deterministic synthesized email so the
+// name/email substring match mirrors the real endpoint's shape. Behaviour matches
+// Express; only the underlying fixture data differs (the real endpoint reads the
+// User table, and matches orders against the related user's name/email — which the
+// order fixture can't carry, so mock orders match on customerName instead).
+const mockCustomers = Array.from(
+  new Map(
+    seedOrders.map((o) => {
+      const email = `${o.customerName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@example.com`;
+      return [o.customerName, { id: `u_${slugify(o.customerName)}`, name: o.customerName, email }];
+    })
+  ).values()
+);
 
 export const handlers = [
   // GET /products — filter (category/color/size), sort, paginate, and facets.
@@ -134,6 +156,34 @@ export const handlers = [
     if (shouldFail('orders')) return fail();
     const order = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json({ ...order, status: 'processing' }, { status: 201 });
+  }),
+
+  // GET /admin/search — grouped admin typeahead. Kept in lockstep with Express
+  // (server/src/routes/admin.ts) for contract parity: 2-char floor (shorter → empty
+  // groups, no filtering), case-insensitive substring match, each group capped at 5.
+  http.get(`${API}/admin/search`, async ({ request }) => {
+    if (shouldFail('admin-search')) return fail();
+    await mockDelay();
+    const q = (new URL(request.url).searchParams.get('q') ?? '').trim();
+    const empty: AdminSearchResults = { products: [], orders: [], customers: [] };
+    if (q.length < SEARCH_MIN_CHARS) return HttpResponse.json(empty);
+
+    const needle = q.toLowerCase();
+    const has = (v: string) => v.toLowerCase().includes(needle);
+    const body: AdminSearchResults = {
+      products: products
+        .filter((p) => has(p.name) || has(p.category))
+        .slice(0, SEARCH_GROUP_LIMIT)
+        .map((p) => ({ id: p.id, name: p.name, sublabel: p.category })),
+      orders: seedOrders
+        .filter((o) => has(o.id) || has(o.customerName))
+        .slice(0, SEARCH_GROUP_LIMIT)
+        .map((o) => ({ id: o.id, label: o.id, sublabel: `${o.customerName} · ${o.status}` })),
+      customers: mockCustomers
+        .filter((c) => has(c.name) || has(c.email))
+        .slice(0, SEARCH_GROUP_LIMIT),
+    };
+    return HttpResponse.json(body);
   }),
 
   // GET /wishlist — bridged to the persisted client store.

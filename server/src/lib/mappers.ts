@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import {
+  AdminSearchResults,
   ApiOrder,
   ApiProduct,
   CategoryFacet,
@@ -127,6 +128,43 @@ export function toApiOrder(o: OrderWithRelations): ApiOrder {
     trackingUrl: o.trackingUrl ?? undefined,
     labelUrl: o.labelUrl ?? undefined,
   };
+}
+
+// --- Admin search DTOs ---
+// Minimal per-group selects: only the columns each dropdown row needs (+ the id
+// to navigate). Category is a relation, so its name is pulled via a nested select.
+export const adminSearchProductSelect = {
+  id: true,
+  name: true,
+  category: { select: { name: true } },
+} satisfies Prisma.ProductSelect;
+
+export const adminSearchOrderSelect = {
+  id: true,
+  customerName: true,
+  status: true,
+} satisfies Prisma.OrderSelect;
+
+export const adminSearchCustomerSelect = {
+  id: true,
+  name: true,
+  email: true,
+} satisfies Prisma.UserSelect;
+
+type SearchProduct = Prisma.ProductGetPayload<{ select: typeof adminSearchProductSelect }>;
+type SearchOrder = Prisma.OrderGetPayload<{ select: typeof adminSearchOrderSelect }>;
+type SearchCustomer = Prisma.UserGetPayload<{ select: typeof adminSearchCustomerSelect }>;
+
+export function toAdminSearchProduct(p: SearchProduct): AdminSearchResults['products'][number] {
+  return { id: p.id, name: p.name, sublabel: p.category.name };
+}
+
+export function toAdminSearchOrder(o: SearchOrder): AdminSearchResults['orders'][number] {
+  return { id: o.id, label: o.id, sublabel: `${o.customerName} · ${o.status}` };
+}
+
+export function toAdminSearchCustomer(u: SearchCustomer): AdminSearchResults['customers'][number] {
+  return { id: u.id, name: u.name, email: u.email };
 }
 
 // Facets computed over the whole catalog (filter-independent), first-seen order.

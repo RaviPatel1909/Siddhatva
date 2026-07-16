@@ -399,6 +399,7 @@ All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
 |----------|------|---------|-------|
 | `GET /admin/orders` | — | `200 OrderListResponse` | every order across all customers |
 | `GET /admin/stats` | — | `200 AdminStats` | real dashboard aggregates (see below); revenue counts **PAID** orders only |
+| `GET /admin/search?q=<string>` | — | `200 AdminSearchResults` | grouped search across products, orders, customers (see below); case-insensitive substring, each group ≤ 5. `q` blank/whitespace or < 2 chars → empty groups, **no DB query** |
 | `PATCH /admin/orders/:id/status` | `{ status }` | `200 Order` | validates transitions (processing→shipped→delivered, →cancelled; terminal states → `422`) |
 | `GET /admin/products/:id` | — | `200 AdminProduct` | full editable shape: variant matrix + raw image `url`/`publicId` |
 | `POST /admin/products` | `ProductInput` | `201 ApiProduct` | |
@@ -434,7 +435,26 @@ interface AdminStats {
   reviews: number;        // count of reviews
   salesByMonth: { month: string; revenue: number }[]; // last 6 months, oldest first
 }
+
+interface AdminSearchResults {
+  products:  { id: string; name: string; sublabel: string }[];  // sublabel = category name
+  orders:    { id: string; label: string; sublabel: string }[]; // label = order id, sublabel = `${customerName} · ${status}`
+  customers: { id: string; name: string; email: string }[];
+}
 ```
+
+**Admin search.** `GET /admin/search?q=` powers the admin topbar search box. It
+matches case-insensitive substrings and returns up to **5** rows per group,
+minimal to what a dropdown row renders plus the `id` needed to navigate:
+
+- **products** — match on `name`; `sublabel` is the category name.
+- **orders** — match on the order `id`, or the customer's `name`/`email` via the
+  `User` relation; `label` is the order `id`, `sublabel` is `${customerName} · ${status}`
+  (`customerName` is denormalized on the order, so display needs no join).
+- **customers** — users with role `CUSTOMER`, match on `name` or `email`.
+
+A blank/whitespace `q`, or one shorter than 2 characters, returns all-empty
+groups **without touching the database**.
 
 **Image store.** `GET /admin/upload-signature` returns how to upload for the
 active store. With `CLOUDINARY_*` configured it returns signed params

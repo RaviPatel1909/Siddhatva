@@ -19,12 +19,26 @@ export interface AdminStats {
   salesByMonth: { month: string; revenue: number }[];
 }
 
+// Grouped results for the admin topbar search (mirrors server/src/contract.ts
+// AdminSearchResults). Each item is minimal — a dropdown row plus the id to
+// navigate. Each group holds at most 5 rows.
+export interface AdminSearchResults {
+  products: { id: string; name: string; sublabel: string }[];
+  orders: { id: string; label: string; sublabel: string }[];
+  customers: { id: string; name: string; email: string }[];
+}
+
 // GET /admin/orders — every order across all customers (ADMIN only).
 export const getAdminOrders = (): Promise<OrderListResponse> =>
   apiFetch<OrderListResponse>('/admin/orders');
 
 // GET /admin/stats — dashboard KPIs (ADMIN only).
 export const getAdminStats = (): Promise<AdminStats> => apiFetch<AdminStats>('/admin/stats');
+
+// GET /admin/search?q= — grouped typeahead across products/orders/customers
+// (ADMIN only). q < 2 chars returns empty groups without a DB query, server-side.
+export const searchAdmin = (q: string): Promise<AdminSearchResults> =>
+  apiFetch<AdminSearchResults>(`/admin/search?q=${encodeURIComponent(q)}`);
 
 // --- Order status ---
 export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';

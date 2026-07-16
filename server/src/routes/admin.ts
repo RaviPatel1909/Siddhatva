@@ -3,8 +3,17 @@ import multer from 'multer';
 import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { requireAdmin, requireAuth } from '../middleware/auth';
-import { orderInclude, toApiOrder } from '../lib/mappers';
-import { AdminStats, OrderListResponse } from '../contract';
+import {
+  orderInclude,
+  toApiOrder,
+  adminSearchProductSelect,
+  adminSearchOrderSelect,
+  adminSearchCustomerSelect,
+  toAdminSearchProduct,
+  toAdminSearchOrder,
+  toAdminSearchCustomer,
+} from '../lib/mappers';
+import { AdminSearchResults, AdminStats, OrderListResponse } from '../contract';
 import { imageStore, LocalImageStore } from '../lib/imageStore';
 import { adminProductsRouter } from './adminProducts';
 import { orderStatusBody, homeContentSchema } from '../schemas';
@@ -184,5 +193,57 @@ adminRouter.get(
       salesByMonth: buildSalesByMonth(paidForChart, SALES_MONTHS),
     };
     res.json(stats);
+  })
+);
+
+// Shortest query that hits the DB; anything shorter returns empty groups.
+const SEARCH_MIN_CHARS = 2;
+// Max rows returned per group (products / orders / customers).
+const SEARCH_GROUP_LIMIT = 5;
+
+// GET /admin/search?q= — grouped typeahead for the admin topbar. Matches
+// case-insensitive substrings across products, orders, and customers; each group
+// is capped at 5. A blank/whitespace or <2-char q short-circuits to empty groups
+// with no DB round-trip.
+adminRouter.get(
+  '/search',
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    if (q.length < SEARCH_MIN_CHARS) {
+      const empty: AdminSearchResults = { products: [], orders: [], customers: [] };
+      res.json(empty);
+      return;
+    }
+
+    const contains = { contains: q, mode: Prisma.QueryMode.insensitive };
+    const [products, orders, customers] = await Promise.all([
+      prisma.product.findMany({
+        where: { OR: [{ name: contains }, { category: { name: contains } }] },
+        select: adminSearchProductSelect,
+        orderBy: { name: 'asc' },
+        take: SEARCH_GROUP_LIMIT,
+      }),
+      prisma.order.findMany({
+        where: {
+          OR: [{ id: contains }, { user: { name: contains } }, { user: { email: contains } }],
+        },
+        select: adminSearchOrderSelect,
+        orderBy: { createdAt: 'desc' },
+        take: SEARCH_GROUP_LIMIT,
+      }),
+      prisma.user.findMany({
+        where: { role: 'CUSTOMER', OR: [{ name: contains }, { email: contains }] },
+        select: adminSearchCustomerSelect,
+        orderBy: { name: 'asc' },
+        take: SEARCH_GROUP_LIMIT,
+      }),
+    ]);
+
+    const body: AdminSearchResults = {
+      products: products.map(toAdminSearchProduct),
+      orders: orders.map(toAdminSearchOrder),
+      customers: customers.map(toAdminSearchCustomer),
+    };
+    res.json(body);
   })
 );
