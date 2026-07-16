@@ -88,7 +88,8 @@ export const CheckoutShippingPage: React.FC = () => {
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
     mode: 'onTouched',
-    defaultValues: { marketingOptIn: false },
+    // Domestic-India store — country is fixed, not a user choice (see the shipping step).
+    defaultValues: { marketingOptIn: false, country: 'India' },
   });
 
   const goNext = async () => {
@@ -255,14 +256,18 @@ export const CheckoutShippingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Country</label>
-                    <select className={inputClass} defaultValue="" {...register('country')}>
-                      <option value="" disabled>Select a country</option>
-                      <option>United States</option>
-                      <option>United Kingdom</option>
-                      <option>France</option>
-                      <option>Italy</option>
-                    </select>
-                    <FieldError name="country" />
+                    {/* Fixed: we ship within India only. Read-only (not disabled) so the
+                        value still submits; styled muted so it clearly reads as fixed. */}
+                    <input
+                      className={`${inputClass} bg-surface-container-low text-on-surface-variant cursor-not-allowed`}
+                      {...register('country')}
+                      readOnly
+                      aria-readonly="true"
+                      tabIndex={-1}
+                    />
+                    <p className="text-[11px] text-on-surface-variant mt-xs">
+                      We currently ship within India only.
+                    </p>
                   </div>
                 </div>
               </div>
