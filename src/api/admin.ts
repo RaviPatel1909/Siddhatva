@@ -40,6 +40,38 @@ export const getAdminStats = (): Promise<AdminStats> => apiFetch<AdminStats>('/a
 export const searchAdmin = (q: string): Promise<AdminSearchResults> =>
   apiFetch<AdminSearchResults>(`/admin/search?q=${encodeURIComponent(q)}`);
 
+// --- Customers (mirrors server/src/contract.ts) ---
+// orderCount = all of the customer's orders; totalSpent = their PAID orders' total
+// (whole INR rupees); createdAt = ISO 8601.
+export interface AdminCustomerListItem {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  orderCount: number;
+  totalSpent: number;
+}
+export interface AdminCustomerListResponse {
+  items: AdminCustomerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+export interface AdminCustomerDetail extends AdminCustomerListItem {
+  orders: ApiOrder[];
+}
+
+// GET /admin/customers?page=&q= — paginated customer list (ADMIN only).
+export const getCustomers = (page = 1, q = ''): Promise<AdminCustomerListResponse> => {
+  const params = new URLSearchParams({ page: String(page) });
+  if (q) params.set('q', q);
+  return apiFetch<AdminCustomerListResponse>(`/admin/customers?${params.toString()}`);
+};
+
+// GET /admin/customers/:id — one customer + their orders (ADMIN only).
+export const getCustomer = (id: string): Promise<AdminCustomerDetail> =>
+  apiFetch<AdminCustomerDetail>(`/admin/customers/${id}`);
+
 // --- Order status ---
 export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export const updateOrderStatus = (id: string, status: OrderStatus): Promise<ApiOrder> =>

@@ -19,6 +19,10 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  // The customer's User id (FK). Optional here because client-built orders
+  // (pre-persist, at checkout) don't carry it; the server always sends it on
+  // persisted orders. Admin surfaces filter a customer's orders by this.
+  userId?: string;
   customerName: string;
   date: string;
   status: OrderStatus;

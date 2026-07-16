@@ -82,6 +82,23 @@ const mockCustomers = Array.from(
   ).values()
 );
 
+// Fixed join date for mock customers (no createdAt in the order fixture). Kept
+// deterministic so the shape is stable; behaviour, not data, is what parity needs.
+const MOCK_CUSTOMER_CREATED_AT = '2023-10-01T00:00:00.000Z';
+const CUSTOMERS_PAGE_SIZE = 8;
+
+// Aggregate a mock customer's orders the same way the server does: orderCount over
+// ALL their orders (matched by name in the fixture — the mock has no userId link),
+// totalSpent over PAID orders only. The fixture carries no paymentStatus, so
+// totalSpent is 0 here — a shape-faithful reference, not real spend data.
+const customerAggregates = (name: string) => {
+  const custOrders = seedOrders.filter((o) => o.customerName === name);
+  const totalSpent = Math.round(
+    custOrders.reduce((sum, o) => (o.paymentStatus === 'PAID' ? sum + o.total : sum), 0)
+  );
+  return { orders: custOrders, orderCount: custOrders.length, totalSpent };
+};
+
 export const handlers = [
   // GET /products — filter (category/color/size), sort, paginate, and facets.
   http.get(`${API}/products`, async ({ request }) => {
@@ -184,6 +201,44 @@ export const handlers = [
         .slice(0, SEARCH_GROUP_LIMIT),
     };
     return HttpResponse.json(body);
+  }),
+
+  // GET /admin/customers — paginated customer list. Parity reference for the real
+  // endpoint (unreachable in MSW: admin has no auth here). Derived from seed-order
+  // customers; aggregates computed like the server (all orders / PAID spend).
+  http.get(`${API}/admin/customers`, async ({ request }) => {
+    if (shouldFail('admin-customers')) return fail();
+    await mockDelay();
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const matched = mockCustomers.filter(
+      (c) => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
+    );
+    const rows = matched.map((c) => {
+      const { orderCount, totalSpent } = customerAggregates(c.name);
+      return { id: c.id, name: c.name, email: c.email, createdAt: MOCK_CUSTOMER_CREATED_AT, orderCount, totalSpent };
+    });
+    const items = rows.slice((page - 1) * CUSTOMERS_PAGE_SIZE, page * CUSTOMERS_PAGE_SIZE);
+    return HttpResponse.json({ items, total: rows.length, page, pageSize: CUSTOMERS_PAGE_SIZE });
+  }),
+
+  // GET /admin/customers/:id — one customer + their orders (admin Order DTO).
+  http.get(`${API}/admin/customers/:id`, async ({ params }) => {
+    if (shouldFail('admin-customer')) return fail();
+    await mockDelay();
+    const customer = mockCustomers.find((c) => c.id === String(params.id));
+    if (!customer) return HttpResponse.json({ message: 'Customer not found' }, { status: 404 });
+    const { orders, orderCount, totalSpent } = customerAggregates(customer.name);
+    return HttpResponse.json({
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      createdAt: MOCK_CUSTOMER_CREATED_AT,
+      orderCount,
+      totalSpent,
+      orders,
+    });
   }),
 
   // GET /wishlist — bridged to the persisted client store.

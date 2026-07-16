@@ -12,8 +12,16 @@ import {
   toAdminSearchProduct,
   toAdminSearchOrder,
   toAdminSearchCustomer,
+  adminCustomerSelect,
+  toAdminCustomerListItem,
 } from '../lib/mappers';
-import { AdminSearchResults, AdminStats, OrderListResponse } from '../contract';
+import {
+  AdminCustomerDetail,
+  AdminCustomerListResponse,
+  AdminSearchResults,
+  AdminStats,
+  OrderListResponse,
+} from '../contract';
 import { imageStore, LocalImageStore } from '../lib/imageStore';
 import { adminProductsRouter } from './adminProducts';
 import { orderStatusBody, homeContentSchema } from '../schemas';
@@ -243,6 +251,98 @@ adminRouter.get(
       products: products.map(toAdminSearchProduct),
       orders: orders.map(toAdminSearchOrder),
       customers: customers.map(toAdminSearchCustomer),
+    };
+    res.json(body);
+  })
+);
+
+// Customers list page size — matches the server-paginated /products envelope.
+const CUSTOMERS_PAGE_SIZE = 8;
+
+// GET /admin/customers?page=&q= — customers (role CUSTOMER), paginated. Optional
+// case-insensitive q on name/email. orderCount counts ALL orders; totalSpent sums
+// PAID orders only (mirrors /admin/stats revenue). Aggregates come from two
+// groupBy queries over just this page's users — no N+1 per row.
+adminRouter.get(
+  '/customers',
+  asyncHandler(async (req, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const q = String(req.query.q ?? '').trim();
+    const where: Prisma.UserWhereInput = {
+      role: 'CUSTOMER',
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: Prisma.QueryMode.insensitive } },
+              { email: { contains: q, mode: Prisma.QueryMode.insensitive } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: adminCustomerSelect,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * CUSTOMERS_PAGE_SIZE,
+        take: CUSTOMERS_PAGE_SIZE,
+      }),
+    ]);
+
+    const userIds = users.map((u) => u.id);
+    const [countGroups, spendGroups] = await Promise.all([
+      prisma.order.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds } },
+        _count: { _all: true },
+      }),
+      prisma.order.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds }, paymentStatus: 'PAID' },
+        _sum: { total: true },
+      }),
+    ]);
+    const countByUser = new Map(countGroups.map((g) => [g.userId, g._count._all]));
+    const spendByUser = new Map(spendGroups.map((g) => [g.userId, g._sum.total ?? 0]));
+
+    const body: AdminCustomerListResponse = {
+      items: users.map((u) =>
+        toAdminCustomerListItem(u, countByUser.get(u.id) ?? 0, Math.round(spendByUser.get(u.id) ?? 0))
+      ),
+      total,
+      page,
+      pageSize: CUSTOMERS_PAGE_SIZE,
+    };
+    res.json(body);
+  })
+);
+
+// GET /admin/customers/:id — one customer plus their orders (admin Order DTO).
+// Orders are loaded once, so both aggregates are computed in memory. 404 if the
+// id isn't a customer.
+adminRouter.get(
+  '/customers/:id',
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findFirst({
+      where: { id: req.params.id, role: 'CUSTOMER' },
+      select: adminCustomerSelect,
+    });
+    if (!user) throw new HttpError(404, 'Customer not found');
+
+    const orders = await prisma.order.findMany({
+      where: { userId: user.id },
+      include: orderInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    const totalSpent = Math.round(
+      orders.reduce((sum, o) => (o.paymentStatus === 'PAID' ? sum + o.total : sum), 0)
+    );
+
+    const body: AdminCustomerDetail = {
+      ...toAdminCustomerListItem(user, orders.length, totalSpent),
+      orders: orders.map(toApiOrder),
     };
     res.json(body);
   })

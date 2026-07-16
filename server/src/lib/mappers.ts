@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import {
+  AdminCustomerListItem,
   AdminSearchResults,
   ApiOrder,
   ApiProduct,
@@ -98,6 +99,7 @@ export function toAdminProduct(p: ProductWithRelations) {
 export function toApiOrder(o: OrderWithRelations): ApiOrder {
   return {
     id: o.id,
+    userId: o.userId,
     customerName: o.customerName,
     date: o.date,
     status: o.status as OrderStatus,
@@ -165,6 +167,33 @@ export function toAdminSearchOrder(o: SearchOrder): AdminSearchResults['orders']
 
 export function toAdminSearchCustomer(u: SearchCustomer): AdminSearchResults['customers'][number] {
   return { id: u.id, name: u.name, email: u.email };
+}
+
+// --- Admin customer DTOs ---
+// Only the identity columns; the order aggregates are computed by the route (via
+// groupBy, to avoid N+1) and passed in — the mapper just assembles the row.
+export const adminCustomerSelect = {
+  id: true,
+  name: true,
+  email: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+type AdminCustomerRow = Prisma.UserGetPayload<{ select: typeof adminCustomerSelect }>;
+
+export function toAdminCustomerListItem(
+  u: AdminCustomerRow,
+  orderCount: number,
+  totalSpent: number
+): AdminCustomerListItem {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    createdAt: u.createdAt.toISOString(),
+    orderCount,
+    totalSpent,
+  };
 }
 
 // Facets computed over the whole catalog (filter-independent), first-seen order.

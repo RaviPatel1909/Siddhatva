@@ -100,6 +100,7 @@ export interface Address {
 
 export interface ApiOrder {
   id: string;
+  userId: string; // the customer's User id (FK); always present on persisted orders
   customerName: string;
   date: string;
   status: OrderStatus;
@@ -150,4 +151,28 @@ export interface AdminSearchResults {
   products: { id: string; name: string; sublabel: string }[]; // sublabel = category name
   orders: { id: string; label: string; sublabel: string }[]; // label = order id; sublabel = `${customerName} · ${status}`
   customers: { id: string; name: string; email: string }[];
+}
+
+// Admin customers list. `orderCount` counts ALL of the customer's orders;
+// `totalSpent` sums only PAID orders' `total` (whole INR rupees), mirroring how
+// AdminStats.revenue is defined. `createdAt` is ISO 8601.
+export interface AdminCustomerListItem {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  orderCount: number;
+  totalSpent: number;
+}
+
+export interface AdminCustomerListResponse {
+  items: AdminCustomerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// One customer plus their orders in the admin Order DTO (reused, not reinvented).
+export interface AdminCustomerDetail extends AdminCustomerListItem {
+  orders: ApiOrder[];
 }

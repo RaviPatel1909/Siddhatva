@@ -139,7 +139,8 @@ type ShippingStatus =
 
 interface Order {
   id: string;              // e.g. "SID-93825"
-  customerName: string;
+  userId: string;          // the customer's User id (FK); present on all persisted orders
+  customerName: string;    // denormalized display name captured at checkout
   date: string;            // "YYYY-MM-DD"
   status: OrderStatus;
   paymentStatus: PaymentStatus;  // 'PENDING' | 'PAID' | 'FAILED'
@@ -400,6 +401,8 @@ All under `/admin/*`, requiring a valid access token **and** the `ADMIN` role
 | `GET /admin/orders` | — | `200 OrderListResponse` | every order across all customers |
 | `GET /admin/stats` | — | `200 AdminStats` | real dashboard aggregates (see below); revenue counts **PAID** orders only |
 | `GET /admin/search?q=<string>` | — | `200 AdminSearchResults` | grouped search across products, orders, customers (see below); case-insensitive substring, each group ≤ 5. `q` blank/whitespace or < 2 chars → empty groups, **no DB query** |
+| `GET /admin/customers?page=<n>&q=<opt>` | — | `200 AdminCustomerListResponse` | customers (role `CUSTOMER`), paginated (see below); optional case-insensitive `q` on name/email; each row carries `orderCount` + `totalSpent` |
+| `GET /admin/customers/:id` | — | `200 AdminCustomerDetail` | one customer + their orders in the admin `Order` DTO; `404` if no such customer |
 | `PATCH /admin/orders/:id/status` | `{ status }` | `200 Order` | validates transitions (processing→shipped→delivered, →cancelled; terminal states → `422`) |
 | `GET /admin/products/:id` | — | `200 AdminProduct` | full editable shape: variant matrix + raw image `url`/`publicId` |
 | `POST /admin/products` | `ProductInput` | `201 ApiProduct` | |
@@ -441,7 +444,31 @@ interface AdminSearchResults {
   orders:    { id: string; label: string; sublabel: string }[]; // label = order id, sublabel = `${customerName} · ${status}`
   customers: { id: string; name: string; email: string }[];
 }
+
+interface AdminCustomerListItem {
+  id: string; name: string; email: string;
+  createdAt: string;   // ISO 8601
+  orderCount: number;  // count of ALL of this customer's orders
+  totalSpent: number;  // sum of `total` for their PAID orders only (whole INR rupees)
+}
+interface AdminCustomerListResponse {
+  items: AdminCustomerListItem[]; total: number; page: number; pageSize: number;
+}
+interface AdminCustomerDetail extends AdminCustomerListItem {
+  orders: Order[];     // the customer's orders, in the admin Order DTO (reused)
+}
 ```
+
+**Admin customers.** `GET /admin/customers` lists users with role `CUSTOMER`,
+server-paginated (`page`, 1-based; `pageSize` fixed) with the same envelope shape
+as `GET /products` minus facets. Optional `q` filters case-insensitively on
+`name`/`email`. Per row: **`orderCount`** counts **all** of that customer's orders
+(any payment status — it answers "how many orders"), while **`totalSpent`** sums
+only **PAID** orders' `total` (mirroring how `AdminStats.revenue` is defined — money
+only counts once captured). `GET /admin/customers/:id` returns the same aggregates
+plus the customer's orders in the admin `Order` DTO (`404` if the id isn't a
+customer). Filtering a customer's orders elsewhere keys on the order's `userId`
+(identity), not the denormalized `customerName`.
 
 **Admin search.** `GET /admin/search?q=` powers the admin topbar search box. It
 matches case-insensitive substrings and returns up to **5** rows per group,
