@@ -6,6 +6,7 @@ import { searchAdmin } from '../../api/admin';
 import { queryKeys } from '../../api/queryKeys';
 import { Skeleton } from '../ui/Skeleton';
 import { EmptyState } from '../ui/EmptyState';
+import { useDebouncedValue } from '../../lib/useDebouncedValue';
 
 const initials = (name: string) =>
   name
@@ -19,16 +20,6 @@ const initials = (name: string) =>
 // 2-char floor). Debounce keeps typing from firing a request per keystroke.
 const SEARCH_MIN_CHARS = 2;
 const SEARCH_DEBOUNCE_MS = 250;
-
-// Small local debounce — no shared hook exists and this is the only caller.
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 // One flattened, navigable result row. `to` is the management page a click lands
 // on (see the group builder below for why each kind routes where it does).
@@ -91,10 +82,10 @@ const AdminSearch: React.FC = () => {
       label: 'Customers',
       rows: results.customers.map<ResultRow>((c) => ({
         key: `customer-${c.id}`,
-        // No customer detail view exists — deep-link to the order list pre-filtered
-        // to this customer. Filter by name (the only customer field the order
-        // carries); OrderManagement reads ?q= into its existing search filter.
-        to: `/admin/orders?q=${encodeURIComponent(c.name)}`,
+        // The customer detail page now exists — the truest "I searched a customer,
+        // show me the customer" destination (it lists their orders by identity).
+        // Replaces the old name-substring order deep-link.
+        to: `/admin/customers/${c.id}`,
         primary: c.name,
         secondary: c.email,
       })),

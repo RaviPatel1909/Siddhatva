@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
@@ -65,12 +65,13 @@ export const OrderManagementPage: React.FC = () => {
       setUpdating(false);
     }
   };
-  // The admin topbar search deep-links a customer here with their name in ?q=;
-  // seed the existing order filter from it (the filter already matches order id /
-  // customerName — the only customer field the order carries). Kept in sync if the
-  // param changes while this page stays mounted.
+  // Two deep-link params (customer detail / order click-through set these):
+  //  - ?customerId= filters by identity (order.userId) — exact, captures every
+  //    order that customer owns regardless of the name captured at checkout.
+  //  - ?q= seeds the text filter (order id / customerName), e.g. one order.
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q') ?? '';
+  const customerId = searchParams.get('customerId') ?? '';
   const [search, setSearch] = useState(queryParam);
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -79,7 +80,7 @@ export const OrderManagementPage: React.FC = () => {
   useEffect(() => {
     setSearch(queryParam);
     setPage(1);
-  }, [queryParam]);
+  }, [queryParam, customerId]);
 
   const filtered = useMemo(() => {
     return orders.filter((order) => {
@@ -88,9 +89,15 @@ export const OrderManagementPage: React.FC = () => {
         order.id.toLowerCase().includes(search.toLowerCase()) ||
         order.customerName.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = status === 'all' || order.status === status;
-      return matchesSearch && matchesStatus;
+      const matchesCustomer = !customerId || order.userId === customerId;
+      return matchesSearch && matchesStatus && matchesCustomer;
     });
-  }, [orders, search, status]);
+  }, [orders, search, status, customerId]);
+
+  // The customer's real name for the banner comes from the deep-link (the customer
+  // page passes it) — NOT an order's denormalized customerName, which can differ per
+  // checkout. Filtering itself keys on userId (identity), which is the whole point.
+  const customerLabel = searchParams.get('name') ?? '';
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -203,6 +210,20 @@ export const OrderManagementPage: React.FC = () => {
           <span className="material-symbols-outlined">refresh</span>
         </button>
       </div>
+
+      {customerId && (
+        <div className="flex items-center justify-between bg-primary-container/40 border border-outline-variant/20 rounded-xl px-md py-sm mb-lg">
+          <span className="text-sm text-on-surface">
+            Showing orders for <span className="font-medium">{customerLabel || 'this customer'}</span>
+          </span>
+          <Link
+            to="/admin/orders"
+            className="text-label-sm font-label-sm text-primary hover:opacity-80 transition-opacity"
+          >
+            Clear filter
+          </Link>
+        </div>
+      )}
 
       <div className="bg-surface-container-lowest/60 p-lg rounded-xl bronze-shadow border border-outline-variant/20">
         <div className="overflow-x-auto">
