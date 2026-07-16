@@ -34,6 +34,8 @@ const ProfileSettingsPage = named(() => import('./pages/account/ProfileSettings'
 const AdminDashboardPage = named(() => import('./pages/admin/AdminDashboard'), 'AdminDashboardPage');
 const ProductManagementPage = named(() => import('./pages/admin/ProductManagement'), 'ProductManagementPage');
 const OrderManagementPage = named(() => import('./pages/admin/OrderManagement'), 'OrderManagementPage');
+const CustomerManagementPage = named(() => import('./pages/admin/CustomerManagement'), 'CustomerManagementPage');
+const CustomerDetailPage = named(() => import('./pages/admin/CustomerManagement'), 'CustomerDetailPage');
 const HomeContentPage = named(() => import('./pages/admin/HomeContent'), 'HomeContentPage');
 
 // Keying the wrapper by pathname remounts the route tree on navigation, which
@@ -75,6 +77,8 @@ const AnimatedRoutes = () => {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/products" element={<ProductManagementPage />} />
           <Route path="/admin/orders" element={<OrderManagementPage />} />
+          <Route path="/admin/customers" element={<CustomerManagementPage />} />
+          <Route path="/admin/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/admin/home" element={<HomeContentPage />} />
         </Route>
           </Routes>
