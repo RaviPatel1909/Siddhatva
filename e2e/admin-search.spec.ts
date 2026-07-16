@@ -63,7 +63,7 @@ test('order result appears under Orders and navigates to order management', asyn
   await expect(page.getByText('#ORD-8243')).toBeVisible({ timeout: 10_000 });
 });
 
-test('customer result navigates to the order list filtered to that customer', async ({ page }) => {
+test('customer result navigates to that customer’s detail page', async ({ page }) => {
   await loginAdmin(page);
   await page.goto('/admin');
 
@@ -73,13 +73,11 @@ test('customer result navigates to the order list filtered to that customer', as
   await expect(row).toBeVisible({ timeout: 10_000 });
 
   await row.click();
-  // Lands on order management deep-linked (?q=) and pre-filtered to this customer.
-  await expect(page).toHaveURL(/\/admin\/orders\?q=/);
-  await expect(page.getByPlaceholder('Search order ID or customer...')).toHaveValue(
-    'Alexander Sterling'
-  );
-  // That customer's order is shown (SID-98231 is seeded to Alexander Sterling)...
-  await expect(page.getByText('#SID-98231')).toBeVisible({ timeout: 10_000 });
-  // ...and a different customer's order is filtered out — proves the filter applied.
-  await expect(page.getByText('Eleanor Martini')).toHaveCount(0);
+  // Now that the customer page exists, a customer result lands on their detail
+  // page (identity route), which lists their orders — not a name-filtered order list.
+  await expect(page).toHaveURL(/\/admin\/customers\/[^/]+$/);
+  await expect(page.getByRole('heading', { name: 'Alexander Sterling' })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByText('#SID-98231')).toBeVisible();
 });
