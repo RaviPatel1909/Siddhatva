@@ -91,8 +91,10 @@ const AdminSearch: React.FC = () => {
       label: 'Customers',
       rows: results.customers.map<ResultRow>((c) => ({
         key: `customer-${c.id}`,
-        // No customer detail view exists — orders is where a customer's activity shows.
-        to: '/admin/orders',
+        // No customer detail view exists — deep-link to the order list pre-filtered
+        // to this customer. Filter by name (the only customer field the order
+        // carries); OrderManagement reads ?q= into its existing search filter.
+        to: `/admin/orders?q=${encodeURIComponent(c.name)}`,
         primary: c.name,
         secondary: c.email,
       })),

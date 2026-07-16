@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { StatCard } from '../../components/shared/StatCard';
 import { Badge } from '../../components/ui/Badge';
@@ -64,10 +65,21 @@ export const OrderManagementPage: React.FC = () => {
       setUpdating(false);
     }
   };
-  const [search, setSearch] = useState('');
+  // The admin topbar search deep-links a customer here with their name in ?q=;
+  // seed the existing order filter from it (the filter already matches order id /
+  // customerName — the only customer field the order carries). Kept in sync if the
+  // param changes while this page stays mounted.
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get('q') ?? '';
+  const [search, setSearch] = useState(queryParam);
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSearch(queryParam);
+    setPage(1);
+  }, [queryParam]);
 
   const filtered = useMemo(() => {
     return orders.filter((order) => {
