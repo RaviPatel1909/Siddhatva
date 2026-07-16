@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Seo } from '../components/seo/Seo';
 import { formatPrice } from '../lib/money';
@@ -7,7 +8,8 @@ import { CartLineItem } from '../components/cart/CartLineItem';
 import { OrderSummaryCard } from '../components/cart/OrderSummaryCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useCart } from '../context/CartContext';
-import { products } from '../data/products';
+import { getProducts } from '../api/products';
+import { queryKeys } from '../api/queryKeys';
 
 export const ShoppingBagPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,10 +19,21 @@ export const ShoppingBagPage: React.FC = () => {
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 
+  // "Curated for You" reads the LIVE catalog via the same query path every product
+  // listing uses, so it can never surface a product the catalog wouldn't — the
+  // bundled static fixture it read before showed deleted products that 404'd on
+  // click (same class as the old Home "New Arrivals" bug). Fetch a small pool, drop
+  // what's already in the bag, take 3. Empty/loading → the section hides.
+  const curatedParams = { pageSize: 8 };
+  const { data: curatedData } = useQuery({
+    queryKey: queryKeys.products(curatedParams),
+    queryFn: () => getProducts(curatedParams),
+  });
   const recommended = useMemo(() => {
     const cartProductIds = new Set(items.map((item) => item.product.id));
-    return products.filter((product) => !cartProductIds.has(product.id)).slice(0, 3);
-  }, [items]);
+    const pool = curatedData?.items ?? [];
+    return pool.filter((product) => !cartProductIds.has(product.id)).slice(0, 3);
+  }, [items, curatedData]);
 
   if (items.length === 0) {
     return (
