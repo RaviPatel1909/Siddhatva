@@ -3,14 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Seo } from '../components/seo/Seo';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
-import { ProductCard } from '../components/product/ProductCard';
-import { ProductCardSkeleton } from '../components/product/ProductCardSkeleton';
+import { ProductGrid } from '../components/product/ProductGrid';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
 import { Pagination } from '../components/ui/Pagination';
 import { SortSelect } from '../components/ui/SortSelect';
 import { Skeleton } from '../components/ui/Skeleton';
-import { ErrorState } from '../components/ui/ErrorState';
-import { useCart } from '../context/CartContext';
 import { getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
 import { ProductSortOption } from '../api/types';
@@ -26,7 +23,6 @@ const SORT_OPTIONS = [
 
 export const ShopAllPage: React.FC = () => {
   const navigate = useNavigate();
-  const { addItem } = useCart();
   const { category } = useParams<{ category?: string }>();
   const activeCategory = category ?? null;
   const [activeColorId, setActiveColorId] = useState<string | null>(null);
@@ -186,41 +182,15 @@ export const ShopAllPage: React.FC = () => {
 
           {/* Product Grid */}
           <div className="md:col-span-3">
-            {isError ? (
-              <ErrorState
-                title="Couldn't load the collection"
-                message="We had trouble reaching the atelier. Please try again."
-                onRetry={() => refetch()}
-              />
-            ) : isLoading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-gutter">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <ProductCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : (
+            <ProductGrid
+              items={items}
+              isLoading={isLoading}
+              isError={isError}
+              isPlaceholderData={isPlaceholderData}
+              onRetry={() => refetch()}
+            />
+            {!isLoading && !isError && (
               <>
-                <div
-                  className={`grid grid-cols-2 lg:grid-cols-3 gap-gutter transition-opacity ${
-                    isPlaceholderData ? 'opacity-60' : 'opacity-100'
-                  }`}
-                >
-                  {items.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      id={product.id}
-                      name={product.name}
-                      price={product.price}
-                      image={product.images[0].src}
-                      imageAlt={product.images[0].alt}
-                      subtitle={product.variant}
-                      badge={product.badge}
-                      soldOut={product.status === 'out-of-stock'}
-                      onViewDetails={() => navigate(`/product/${product.id}`)}
-                      onAddToCart={() => addItem(product, product.colors[0], product.sizes[0])}
-                    />
-                  ))}
-                </div>
                 {items.length === 0 && (
                   <p className="text-center text-on-surface-variant py-xl">No pieces match these filters.</p>
                 )}

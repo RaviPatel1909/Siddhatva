@@ -19,6 +19,7 @@ const named = <T,>(loader: () => Promise<Record<string, T>>, key: string) =>
   lazy(() => loader().then((m) => ({ default: m[key] as ComponentType })));
 
 const ShopAllPage = named(() => import('./pages/ShopAll'), 'ShopAllPage');
+const SearchResultsPage = named(() => import('./pages/SearchResults'), 'SearchResultsPage');
 const ProductDetailPage = named(() => import('./pages/ProductDetail'), 'ProductDetailPage');
 const ShoppingBagPage = named(() => import('./pages/ShoppingBag'), 'ShoppingBagPage');
 const CheckoutShippingPage = named(() => import('./pages/CheckoutShipping'), 'CheckoutShippingPage');
@@ -55,6 +56,7 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopAllPage />} />
         <Route path="/shop/:category" element={<ShopAllPage />} />
+        <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/cart" element={<ShoppingBagPage />} />
         <Route path="/checkout" element={<CheckoutShippingPage />} />

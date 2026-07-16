@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,7 +27,24 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
   const { count: wishlistCount } = useWishlist();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const openSearch = () => {
+    // Preserve the current query so re-opening on the results page shows what was searched.
+    setSearchTerm(searchParams.get('q') ?? '');
+    setSearchOpen(true);
+  };
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchTerm.trim();
+    if (!term) return;
+    setSearchOpen(false);
+    navigate(`/search?q=${encodeURIComponent(term)}`);
+  };
 
   const closeMenu = () => setMenuOpen(false);
   const handleLogout = async () => {
@@ -38,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
 
   return (
     <nav
-      className="sticky top-0 z-50 w-full h-20 chrome-surface border-b border-border"
+      className="sticky top-0 z-50 w-full h-20 chrome-surface border-b border-border relative"
     >
       <div
         className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop
@@ -76,9 +93,11 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
         {/* Icon Actions */}
         <div className="flex items-center gap-md">
           <button
+            onClick={() => (searchOpen ? setSearchOpen(false) : openSearch())}
             className="material-symbols-outlined text-on-background
                       hover:text-primary transition-colors"
             aria-label="Search"
+            aria-expanded={searchOpen}
           >
             search
           </button>
@@ -185,6 +204,44 @@ export const Navbar: React.FC<NavbarProps> = ({ brandName = 'Siddhatva' }) => {
           )}
         </div>
       </div>
+
+      {/* Expandable search bar — drops below the bar full-width so it fits at 375
+          and 1280 alike. Submits to /search?q= (the results page does the work). */}
+      {searchOpen && (
+        <div className="absolute left-0 top-full w-full chrome-surface border-b border-border shadow-lg">
+          <form
+            role="search"
+            onSubmit={submitSearch}
+            className="flex items-center gap-sm w-full px-margin-mobile md:px-margin-desktop
+                       max-w-7xl mx-auto py-md"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant" aria-hidden="true">
+              search
+            </span>
+            <input
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              type="search"
+              name="q"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              placeholder="Search the collection…"
+              aria-label="Search products"
+              className="flex-1 bg-transparent font-body-md text-body-md text-on-surface
+                         placeholder:text-on-surface-variant focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setSearchOpen(false)}
+              className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors"
+              aria-label="Close search"
+            >
+              close
+            </button>
+          </form>
+        </div>
+      )}
     </nav>
   );
 };
