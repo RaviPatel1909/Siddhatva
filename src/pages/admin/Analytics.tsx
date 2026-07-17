@@ -9,9 +9,19 @@ import { Button } from '../../components/ui/Button';
 import { AnalyticsCard } from '../../components/admin/analytics/AnalyticsCard';
 import { AnalyticsFilterBar } from '../../components/admin/analytics/AnalyticsFilterBar';
 import { RevenueChart } from '../../components/admin/analytics/RevenueChart';
+import {
+  OrdersBreakdown,
+  CustomerInsights,
+  TopProductsTable,
+  QuickInsights,
+  type Insight,
+} from '../../components/admin/analytics/AnalyticsWidgets';
 import { SortSelect } from '../../components/ui/SortSelect';
 import {
+  getAnalyticsCustomers,
+  getAnalyticsOrders,
   getAnalyticsOverview,
+  getAnalyticsProducts,
   getAnalyticsRevenue,
   type AnalyticsGranularity,
   type AnalyticsOverview,
@@ -102,8 +112,44 @@ export const AnalyticsPage: React.FC = () => {
     queryKey: queryKeys.adminAnalyticsRevenue(from, to, granularity),
     queryFn: () => getAnalyticsRevenue({ from, to, granularity }),
   });
+  const orders = useQuery({
+    queryKey: queryKeys.adminAnalyticsOrders(from, to),
+    queryFn: () => getAnalyticsOrders({ from, to }),
+  });
+  const customers = useQuery({
+    queryKey: queryKeys.adminAnalyticsCustomers(from, to, granularity),
+    queryFn: () => getAnalyticsCustomers({ from, to, granularity }),
+  });
+  // Top products are all-time (the API takes limit only, no date filter).
+  const products = useQuery({
+    queryKey: queryKeys.adminAnalyticsProducts(10),
+    queryFn: () => getAnalyticsProducts(10),
+  });
 
   const o = overview.data;
+
+  // Quick insights — derived only from data already fetched; nothing fabricated.
+  const insights = useMemo<Insight[]>(() => {
+    const list: Insight[] = [];
+    const peak = revenue.data?.reduce<{ date: string; revenue: number } | null>(
+      (best, p) => (p.revenue > (best?.revenue ?? -1) ? p : best),
+      null
+    );
+    if (peak && peak.revenue > 0) {
+      list.push({ icon: 'show_chart', label: 'Highest revenue period', value: `${peak.date} · ${formatPrice(peak.revenue)}` });
+    }
+    if (o && o.paidOrders > 0) {
+      list.push({ icon: 'receipt_long', label: 'Avg revenue per paid order', value: formatPrice(o.averageOrderValue) });
+    }
+    const top = products.data?.[0];
+    if (top) {
+      list.push({ icon: 'trending_up', label: 'Top selling product', value: `${top.productName} · ${top.unitsSold} sold` });
+    }
+    if (o && o.lowStock + o.outOfStock > 0) {
+      list.push({ icon: 'inventory_2', label: 'Inventory needing attention', value: `${o.lowStock} low · ${o.outOfStock} out of stock` });
+    }
+    return list;
+  }, [revenue.data, products.data, o]);
 
   return (
     <AdminLayout>
@@ -180,11 +226,38 @@ export const AnalyticsPage: React.FC = () => {
         {revenue.data && <RevenueChart points={revenue.data} granularity={granularity} />}
       </AnalyticsCard>
 
+      {/* Orders + customers — two-column on desktop, stacked on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-gutter mb-xl">
+        <OrdersBreakdown
+          data={orders.data}
+          isLoading={orders.isLoading}
+          isError={orders.isError}
+          onRetry={() => orders.refetch()}
+        />
+        <CustomerInsights
+          data={customers.data}
+          isLoading={customers.isLoading}
+          isError={customers.isError}
+          onRetry={() => customers.refetch()}
+        />
+      </div>
+
+      {/* Top products */}
+      <div className="mb-xl">
+        <TopProductsTable
+          data={products.data}
+          isLoading={products.isLoading}
+          isError={products.isError}
+          onRetry={() => products.refetch()}
+        />
+      </div>
+
       {/* Inventory summary — actionable callout, sourced from the same overview query */}
       <AnalyticsCard
         title="Inventory Summary"
         subtitle="Current stock health (not affected by the date range)."
         icon="inventory_2"
+        className="mb-xl"
         isLoading={overview.isLoading}
         isError={overview.isError}
         onRetry={() => overview.refetch()}
@@ -224,6 +297,12 @@ export const AnalyticsPage: React.FC = () => {
           </div>
         )}
       </AnalyticsCard>
+
+      {/* Quick insights — derived from the data already loaded above */}
+      <QuickInsights
+        insights={insights}
+        isLoading={overview.isLoading && revenue.isLoading && products.isLoading}
+      />
     </AdminLayout>
   );
 };
