@@ -32,6 +32,12 @@ const AccountOverviewPage = named(() => import('./pages/account/AccountOverview'
 const MyOrdersPage = named(() => import('./pages/account/MyOrders'), 'MyOrdersPage');
 const MyWishlistPage = named(() => import('./pages/account/MyWishlist'), 'MyWishlistPage');
 const ProfileSettingsPage = named(() => import('./pages/account/ProfileSettings'), 'ProfileSettingsPage');
+const ContactPage = named(() => import('./pages/legal/Contact'), 'ContactPage');
+const ShippingPolicyPage = named(() => import('./pages/legal/ShippingPolicy'), 'ShippingPolicyPage');
+const TermsPage = named(() => import('./pages/legal/Terms'), 'TermsPage');
+const PrivacyPage = named(() => import('./pages/legal/Privacy'), 'PrivacyPage');
+const RefundPolicyPage = named(() => import('./pages/legal/RefundPolicy'), 'RefundPolicyPage');
+const PricingPolicyPage = named(() => import('./pages/legal/PricingPolicy'), 'PricingPolicyPage');
 const AdminDashboardPage = named(() => import('./pages/admin/AdminDashboard'), 'AdminDashboardPage');
 const ProductManagementPage = named(() => import('./pages/admin/ProductManagement'), 'ProductManagementPage');
 const OrderManagementPage = named(() => import('./pages/admin/OrderManagement'), 'OrderManagementPage');
@@ -65,6 +71,14 @@ const AnimatedRoutes = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Footer compliance / info pages (public, indexable) */}
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/refund-policy" element={<RefundPolicyPage />} />
+        <Route path="/pricing-policy" element={<PricingPolicyPage />} />
 
         {/* Authenticated customer area */}
         <Route element={<ProtectedRoute />}>
