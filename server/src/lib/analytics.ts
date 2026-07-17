@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
-import { AnalyticsOrders, AnalyticsOverview, RevenuePoint } from '../contract';
+import { AnalyticsOrders, AnalyticsOverview, RevenuePoint, TopProduct } from '../contract';
 
 export type Granularity = 'day' | 'week' | 'month';
 
@@ -239,4 +239,47 @@ export async function getOrderBreakdown(range: {
       cancelled: at(shippingN, 'cancelled'),
     },
   };
+}
+
+// GET /admin/analytics/products — top products by units sold, PAID orders only.
+// Aggregated in memory because per-line revenue is quantity*price and orderCount
+// is a DISTINCT-order count — neither expressible in a single groupBy. One query
+// (PAID order items) then a single reduce; no N+1. productName is the
+// denormalized OrderItem.name, so it survives a product hard-delete.
+export async function getTopProducts(limit: number): Promise<TopProduct[]> {
+  const items = await prisma.orderItem.findMany({
+    where: { order: { paymentStatus: 'PAID' } },
+    select: { productId: true, name: true, quantity: true, price: true, orderId: true },
+  });
+
+  type Agg = {
+    productId: string;
+    productName: string;
+    unitsSold: number;
+    revenue: number;
+    orders: Set<string>;
+  };
+  const byProduct = new Map<string, Agg>();
+  for (const it of items) {
+    let a = byProduct.get(it.productId);
+    if (!a) {
+      a = { productId: it.productId, productName: it.name, unitsSold: 0, revenue: 0, orders: new Set() };
+      byProduct.set(it.productId, a);
+    }
+    a.unitsSold += it.quantity;
+    a.revenue += it.quantity * it.price;
+    a.orders.add(it.orderId);
+    a.productName = it.name; // denormalized; keep the most recent label seen
+  }
+
+  return [...byProduct.values()]
+    .map((a) => ({
+      productId: a.productId,
+      productName: a.productName,
+      unitsSold: a.unitsSold,
+      revenue: Math.round(a.revenue),
+      orderCount: a.orders.size,
+    }))
+    .sort((x, y) => y.unitsSold - x.unitsSold || y.revenue - x.revenue)
+    .slice(0, limit);
 }

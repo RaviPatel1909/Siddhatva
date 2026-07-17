@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/http';
-import { analyticsRangeQuery, analyticsTimeSeriesQuery } from '../schemas';
-import { getOrderBreakdown, getOverview, getRevenueSeries } from '../lib/analytics';
+import { analyticsProductsQuery, analyticsRangeQuery, analyticsTimeSeriesQuery } from '../schemas';
+import {
+  getOrderBreakdown,
+  getOverview,
+  getRevenueSeries,
+  getTopProducts,
+} from '../lib/analytics';
+
+// Default number of top products when ?limit is omitted.
+const DEFAULT_PRODUCT_LIMIT = 10;
 
 // /admin/analytics/* — mounted under the admin router, so it inherits
 // requireAuth + requireAdmin. Handlers stay thin: parse+validate the query with
@@ -33,5 +41,14 @@ adminAnalyticsRouter.get(
   asyncHandler(async (req, res) => {
     const query = analyticsRangeQuery.parse(req.query);
     res.json(await getOrderBreakdown(query));
+  })
+);
+
+// GET /admin/analytics/products?limit
+adminAnalyticsRouter.get(
+  '/products',
+  asyncHandler(async (req, res) => {
+    const { limit } = analyticsProductsQuery.parse(req.query);
+    res.json(await getTopProducts(limit ?? DEFAULT_PRODUCT_LIMIT));
   })
 );
