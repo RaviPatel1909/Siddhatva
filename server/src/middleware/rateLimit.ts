@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { HttpError } from '../lib/http';
 import { env } from '../env';
+import { securityEvent } from '../lib/securityLog';
 
 // Minimal in-memory fixed-window rate limiter (no external dep — the stack can
 // solve this). Keyed by client IP; suitable for a single-process dev/prod node.
@@ -40,6 +41,7 @@ export function rateLimit(opts: { windowMs: number; max: number; name?: string }
       return;
     }
     if (bucket.count >= opts.max) {
+      securityEvent('security.rate_limited', { limiter: opts.name ?? 'rl', ip: clientIp(req) });
       next(new HttpError(429, 'Too many requests — please try again later'));
       return;
     }

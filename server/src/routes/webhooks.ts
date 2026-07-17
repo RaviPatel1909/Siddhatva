@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { paymentGateway } from '../lib/payments';
 import { findOrderByRazorpayOrderId, markOrderFailed, markOrderPaid } from '../lib/orderPayments';
+import { securityEvent } from '../lib/securityLog';
 
 export const webhookRouter = Router();
 
@@ -18,6 +19,7 @@ webhookRouter.post('/', async (req: Request, res: Response) => {
   const rawBody = req.body as Buffer;
   const signature = req.header('x-razorpay-signature') ?? '';
   if (!Buffer.isBuffer(rawBody) || !paymentGateway.verifyWebhookSignature({ rawBody, signature })) {
+    securityEvent('payment.webhook_signature_invalid', { ip: req.ip });
     res.status(400).json({ message: 'Invalid webhook signature' });
     return;
   }

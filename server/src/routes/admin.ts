@@ -30,12 +30,27 @@ import { HOME_KEY } from '../lib/homeContent';
 import { Prisma } from '@prisma/client';
 import { orderEvents, OrderEvent } from '../lib/events';
 import { shipOrder } from '../lib/orderShipping';
+import { securityEvent } from '../lib/securityLog';
 
 export const adminRouter = Router();
 
 // Every /admin route requires a valid token AND the ADMIN role.
 // requireAuth first → 401 when unauthenticated; requireAdmin → 403 when not admin.
 adminRouter.use(requireAuth, requireAdmin);
+
+// Audit every admin-only MUTATION (create/update/delete). Reads (GET) are omitted
+// to keep the log signal-dense. Path only (query stripped) so a search `?q=` term
+// never lands in the audit log.
+adminRouter.use((req, _res, next) => {
+  if (req.method !== 'GET') {
+    securityEvent('admin.operation', {
+      userId: req.user!.id,
+      method: req.method,
+      path: req.originalUrl.split('?')[0],
+    });
+  }
+  next();
+});
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 

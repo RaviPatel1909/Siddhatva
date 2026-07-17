@@ -10,6 +10,7 @@ import { orderEvents } from '../lib/events';
 import { MockGateway, paymentGateway } from '../lib/payments';
 import { markOrderPaid } from '../lib/orderPayments';
 import { buildOrderDraft } from '../lib/checkout';
+import { securityEvent } from '../lib/securityLog';
 
 export const ordersRouter = Router();
 
@@ -44,7 +45,14 @@ ordersRouter.post(
   rateLimit({ windowMs: 15 * 60 * 1000, max: 60, name: 'checkout' }),
   asyncHandler(async (req, res) => {
     const input = createOrderBody.parse(req.body);
-    const draft = await buildOrderDraft(input);
+    // A 4xx from the checkout builder = a rejected order (stock/variant/sellability).
+    // Audit it (message is non-sensitive), then let the central handler respond.
+    const draft = await buildOrderDraft(input).catch((err: unknown) => {
+      if (err instanceof HttpError && err.status < 500) {
+        securityEvent('order.validation_failed', { userId: req.user!.id, reason: err.message });
+      }
+      throw err;
+    });
 
     const order = await prisma.order.create({
       data: {
@@ -95,7 +103,10 @@ ordersRouter.post(
       paymentId: razorpay_payment_id,
       signature: razorpay_signature,
     });
-    if (!valid) throw new HttpError(400, 'Payment signature verification failed');
+    if (!valid) {
+      securityEvent('payment.verify_failed', { orderId: order.id, userId: req.user!.id, ip: req.ip });
+      throw new HttpError(400, 'Payment signature verification failed');
+    }
 
     // Idempotent — the webhook may have already marked it PAID.
     await markOrderPaid(order.id, razorpay_payment_id);

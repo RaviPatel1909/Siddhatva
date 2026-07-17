@@ -21,6 +21,7 @@ import {
 import { emailService } from '../lib/email/service';
 import { renderPasswordReset } from '../emails/render';
 import { env } from '../env';
+import { securityEvent } from '../lib/securityLog';
 
 export const authRouter = Router();
 
@@ -90,9 +91,12 @@ authRouter.post(
     const { email, password } = loginBody.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await verifyPassword(password, user.password))) {
+      securityEvent('auth.login_failed', { email, ip: req.ip });
       throw new HttpError(401, 'Invalid email or password');
     }
     const accessToken = await issueSession(res, { id: user.id, role: user.role as Role });
+    // Admin sign-ins are audit-worthy (privileged access); customer logins are not.
+    if (user.role === 'ADMIN') securityEvent('auth.admin_login', { userId: user.id, ip: req.ip });
     res.json({ user: toPublicUser(user), accessToken });
   })
 );
@@ -102,16 +106,21 @@ authRouter.post(
   '/refresh',
   asyncHandler(async (req, res) => {
     const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
-    if (!raw) throw new HttpError(401, 'Missing refresh token');
+    if (!raw) {
+      securityEvent('auth.refresh_failed', { ip: req.ip, reason: 'missing' });
+      throw new HttpError(401, 'Missing refresh token');
+    }
 
     const tokenHash = hashToken(raw);
     const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
     if (!stored) {
+      securityEvent('auth.refresh_failed', { ip: req.ip, reason: 'unknown_token' });
       clearRefreshCookie(res);
       throw new HttpError(401, 'Invalid refresh token');
     }
     // Reuse of an already-rotated token → likely theft; revoke the whole family.
     if (stored.revokedAt) {
+      securityEvent('auth.refresh_reuse_detected', { userId: stored.userId, ip: req.ip });
       await prisma.refreshToken.updateMany({
         where: { userId: stored.userId, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -120,12 +129,14 @@ authRouter.post(
       throw new HttpError(401, 'Refresh token already used');
     }
     if (stored.expiresAt < new Date()) {
+      securityEvent('auth.refresh_failed', { userId: stored.userId, ip: req.ip, reason: 'expired' });
       clearRefreshCookie(res);
       throw new HttpError(401, 'Refresh token expired');
     }
 
     const user = await prisma.user.findUnique({ where: { id: stored.userId } });
     if (!user) {
+      securityEvent('auth.refresh_failed', { userId: stored.userId, ip: req.ip, reason: 'user_gone' });
       clearRefreshCookie(res);
       throw new HttpError(401, 'Invalid refresh token');
     }
@@ -205,6 +216,7 @@ authRouter.post(
         data: { revokedAt: new Date() },
       }),
     ]);
+    securityEvent('auth.password_reset', { userId: record.userId });
     clearRefreshCookie(res);
     res.json({ ok: true });
   })
