@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: 'Orders', href: '/admin/orders', icon: 'shopping_cart' },
   { label: 'Home Content', href: '/admin/home', icon: 'home' },
   { label: 'Customers', href: '/admin/customers', icon: 'group' },
-  { label: 'Analytics', href: '#', icon: 'monitoring' },
+  { label: 'Analytics', href: '/admin/analytics', icon: 'monitoring' },
 ];
 
 export const AdminSidebar: React.FC = () => {

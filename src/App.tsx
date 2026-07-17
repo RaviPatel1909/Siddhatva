@@ -44,6 +44,7 @@ const OrderManagementPage = named(() => import('./pages/admin/OrderManagement'),
 const CustomerManagementPage = named(() => import('./pages/admin/CustomerManagement'), 'CustomerManagementPage');
 const CustomerDetailPage = named(() => import('./pages/admin/CustomerManagement'), 'CustomerDetailPage');
 const HomeContentPage = named(() => import('./pages/admin/HomeContent'), 'HomeContentPage');
+const AnalyticsPage = named(() => import('./pages/admin/Analytics'), 'AnalyticsPage');
 
 // Keying the wrapper by pathname remounts the route tree on navigation, which
 // replays the .page-enter fade. Query-string changes keep the same key, so
@@ -96,6 +97,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/customers" element={<CustomerManagementPage />} />
           <Route path="/admin/customers/:id" element={<CustomerDetailPage />} />
           <Route path="/admin/home" element={<HomeContentPage />} />
+          <Route path="/admin/analytics" element={<AnalyticsPage />} />
         </Route>
           </Routes>
         </Suspense>
