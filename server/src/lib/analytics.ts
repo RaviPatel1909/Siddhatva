@@ -1,6 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
-import { AnalyticsOrders, AnalyticsOverview, RevenuePoint, TopProduct } from '../contract';
+import {
+  AnalyticsCustomers,
+  AnalyticsOrders,
+  AnalyticsOverview,
+  RevenuePoint,
+  TopProduct,
+} from '../contract';
 
 export type Granularity = 'day' | 'week' | 'month';
 
@@ -282,4 +288,57 @@ export async function getTopProducts(limit: number): Promise<TopProduct[]> {
     }))
     .sort((x, y) => y.unitsSold - x.unitsSold || y.revenue - x.revenue)
     .slice(0, limit);
+}
+
+// GET /admin/analytics/customers — new vs returning BUYERS over the window, plus
+// account registrations per bucket. new = first-ever order in window; returning =
+// ordered in window AND has an order before the window. registrationsOverTime is
+// a DISTINCT concept (signups by User.createdAt). Three parallel queries; no N+1.
+export async function getCustomerAnalytics(
+  range: { from?: string; to?: string },
+  granularity: Granularity | undefined
+): Promise<AnalyticsCustomers> {
+  const g = granularity ?? 'month';
+  const { startMs, endMsExclusive } = resolveSeriesWindow(range.from, range.to, g);
+  const windowStart = new Date(startMs);
+  const windowEnd = new Date(endMsExclusive);
+
+  const [firstOrders, orderedInWindow, registrations] = await Promise.all([
+    // Each customer's first-ever order instant (all-time).
+    prisma.order.groupBy({ by: ['userId'], _min: { createdAt: true } }),
+    // Customers who placed at least one order within the window.
+    prisma.order.groupBy({
+      by: ['userId'],
+      where: { createdAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    }),
+    // Account registrations within the window (signups — distinct from buyers).
+    prisma.user.findMany({
+      where: { role: 'CUSTOMER', createdAt: { gte: windowStart, lt: windowEnd } },
+      select: { createdAt: true },
+    }),
+  ]);
+
+  const firstOrderMs = new Map(
+    firstOrders.map((r) => [r.userId, r._min.createdAt ? r._min.createdAt.getTime() : Infinity])
+  );
+  let newCustomers = 0;
+  let returningCustomers = 0;
+  for (const r of orderedInWindow) {
+    const first = firstOrderMs.get(r.userId);
+    if (first === undefined) continue;
+    if (first >= startMs) newCustomers += 1; // first purchase is within the window
+    else returningCustomers += 1; // had ≥1 order before the window
+  }
+
+  const { series, indexByKey } = emptyBuckets(startMs, endMsExclusive, g, (date) => ({
+    date,
+    count: 0,
+  }));
+  for (const u of registrations) {
+    const idx = indexByKey.get(bucketKey(bucketStartMs(u.createdAt, g), g));
+    if (idx !== undefined) series[idx].count += 1;
+  }
+
+  return { newCustomers, returningCustomers, registrationsOverTime: series };
 }

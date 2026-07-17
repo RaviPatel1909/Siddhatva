@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../lib/http';
 import { analyticsProductsQuery, analyticsRangeQuery, analyticsTimeSeriesQuery } from '../schemas';
 import {
+  getCustomerAnalytics,
   getOrderBreakdown,
   getOverview,
   getRevenueSeries,
@@ -50,5 +51,14 @@ adminAnalyticsRouter.get(
   asyncHandler(async (req, res) => {
     const { limit } = analyticsProductsQuery.parse(req.query);
     res.json(await getTopProducts(limit ?? DEFAULT_PRODUCT_LIMIT));
+  })
+);
+
+// GET /admin/analytics/customers?from&to&granularity
+adminAnalyticsRouter.get(
+  '/customers',
+  asyncHandler(async (req, res) => {
+    const { from, to, granularity } = analyticsTimeSeriesQuery.parse(req.query);
+    res.json(await getCustomerAnalytics({ from, to }, granularity));
   })
 );
