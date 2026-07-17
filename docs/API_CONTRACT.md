@@ -494,6 +494,113 @@ Cloudinary delivery URLs are optimized (`f_auto,q_auto`) by the mapper.
 
 ---
 
+## Admin analytics (`/admin/analytics/*`)
+
+A dedicated analytics namespace powering the (future) Analytics Dashboard, kept
+**separate from `GET /admin/stats`** so that endpoint stays backward-compatible.
+All under the same `requireAuth` + `requireAdmin` guard (401 / 403). Money is
+whole-rupee INR; **revenue and product units/revenue count PAID orders only**
+(`paymentStatus === 'PAID'`), consistent with `AdminStats.revenue`.
+
+| Endpoint | Query | Success | Notes |
+|----------|-------|---------|-------|
+| `GET /admin/analytics/overview` | `from?`, `to?` | `200 AnalyticsOverview` | headline metrics; date filter applies to revenue/orders/customers/reviews. **Inventory (`lowStock`/`outOfStock`) is always current-state**, never date-filtered |
+| `GET /admin/analytics/revenue` | `from?`, `to?`, `granularity?` | `200 RevenuePoint[]` | PAID revenue + paid-order count per time bucket, oldest→newest, **zero-filled** |
+| `GET /admin/analytics/orders` | `from?`, `to?` | `200 AnalyticsOrders` | order counts grouped by **three independent status axes** (see below) |
+| `GET /admin/analytics/products` | `limit?` | `200 TopProduct[]` | top products by units sold (PAID only), highest first |
+| `GET /admin/analytics/customers` | `from?`, `to?`, `granularity?` | `200 AnalyticsCustomers` | new vs returning buyers + registrations per bucket |
+
+### Date semantics (timezone + boundaries)
+
+- **Timezone: IST (UTC+05:30).** All buckets and `from`/`to` boundaries are
+  resolved against IST calendar days — this is a domestic-India store, so naive
+  UTC bucketing would misassign late-evening-IST orders to the wrong day.
+- **`from`/`to` format `YYYY-MM-DD`, both bounds INCLUSIVE** (IST calendar days):
+  `from=2026-07-01&to=2026-07-31` covers `2026-07-01 00:00:00 IST` through
+  `2026-07-31 23:59:59.999 IST`. Implemented as a half-open UTC interval
+  `[fromStartUTC, (to+1 day)startUTC)`. `from` > `to` → `400`.
+- Aggregation always keys on the `createdAt` timestamp, **never** the legacy
+  string `date` column.
+- **`granularity`** ∈ `day | week | month` (default **`month`**). Weeks start
+  **Monday** (IST). Bucket `date` field format: day → `YYYY-MM-DD`, week →
+  Monday's `YYYY-MM-DD`, month → `YYYY-MM`.
+- **Default window** when `from`/`to` are omitted: `overview` and `orders` are
+  **all-time**; the time-series endpoints (`revenue`, `customers`) default to a
+  trailing window ending today (IST) sized by granularity — `day` → last 30 days,
+  `week` → last 12 weeks, `month` → last 12 months — so the series is always
+  bounded.
+- Invalid `granularity`, malformed dates, `from > to`, or `limit < 1` return
+  `400 { message: 'Validation failed', issues }` — input is **never** silently
+  coerced.
+
+### Order status axes
+
+An order has **three independent statuses** — it is always in exactly one state
+on *each* axis simultaneously (they are not mutually exclusive states of one
+field). The response nests them so this is explicit:
+
+- **`fulfillment`** (`Order.status`): `processing | shipped | delivered | cancelled`
+- **`payment`** (`Order.paymentStatus`): `PENDING | PAID | FAILED` → keys
+  `pendingPayment | paid | failedPayment`
+- **`shipping`** (`Order.shippingStatus`): `not_shipped | shipment_created |
+  in_transit | out_for_delivery | delivered | cancelled` → keys `notShipped |
+  shipmentCreated | inTransit | outForDelivery | delivered | cancelled`
+
+### New vs returning customers (defined)
+
+Buyer-activity based, over the requested window `[from, to]`:
+
+- **`newCustomers`** — customers whose **first-ever order** falls within the
+  window (their first purchase happened in this period).
+- **`returningCustomers`** — customers who placed **≥ 1 order within** the window
+  **and** have **≥ 1 order strictly before `from`** (they had purchased before).
+
+These classify **purchasers**, not signups. **`registrationsOverTime`** is a
+separate series counting **account registrations** (`User.createdAt`, role
+`CUSTOMER`) per bucket — a distinct concept from buyer new/returning.
+
+```ts
+interface AnalyticsOverview {
+  revenue: number;            // sum of `total` for PAID orders in range (whole INR)
+  orders: number;             // count of all orders in range
+  paidOrders: number;         // count of PAID orders in range
+  customers: number;          // count of role=CUSTOMER users registered in range
+  averageOrderValue: number;  // revenue / paidOrders (0 when no paid orders)
+  lowStock: number;           // variants 0 < stock <= 5 — CURRENT state, not date-filtered
+  outOfStock: number;         // variants stock === 0 — CURRENT state, not date-filtered
+  reviews: number;            // count of reviews created in range
+}
+
+interface RevenuePoint {
+  date: string;     // bucket key (see granularity formats above)
+  revenue: number;  // PAID revenue in the bucket (whole INR)
+  orders: number;   // PAID order count in the bucket
+}
+
+interface AnalyticsOrders {
+  fulfillment: { processing: number; shipped: number; delivered: number; cancelled: number };
+  payment:     { pendingPayment: number; paid: number; failedPayment: number };
+  shipping:    { notShipped: number; shipmentCreated: number; inTransit: number;
+                 outForDelivery: number; delivered: number; cancelled: number };
+}
+
+interface TopProduct {
+  productId: string;
+  productName: string;  // denormalized OrderItem.name (survives product hard-delete)
+  unitsSold: number;    // sum of quantity across PAID orders
+  revenue: number;      // sum of quantity * price across PAID orders (whole INR)
+  orderCount: number;   // distinct PAID orders containing the product
+}
+
+interface AnalyticsCustomers {
+  newCustomers: number;
+  returningCustomers: number;
+  registrationsOverTime: { date: string; count: number }[]; // signups per bucket, zero-filled
+}
+```
+
+---
+
 ## Error model (summary)
 
 | Status | Body                              | When |

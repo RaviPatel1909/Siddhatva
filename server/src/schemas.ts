@@ -118,6 +118,35 @@ export const orderStatusBody = z.object({
   status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
 });
 
+// --- Admin analytics (/admin/analytics/*) ---
+// A `YYYY-MM-DD` calendar date, validated strictly (rejects 2026-13-01 /
+// 2026-02-30 which a regex alone would pass). Interpreted as an IST day downstream.
+function isValidCalendarDate(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+const isoDate = z
+  .string()
+  .refine(isValidCalendarDate, 'Expected a valid date as YYYY-MM-DD');
+
+// `from` must be on/before `to` when both are present; invalid input is rejected
+// (400), never coerced.
+const fromBeforeTo = (v: { from?: string; to?: string }) => !v.from || !v.to || v.from <= v.to;
+const fromBeforeToOpts = { message: '`from` must be on or before `to`', path: ['from'] };
+const rangeShape = { from: isoDate.optional(), to: isoDate.optional() };
+export const granularity = z.enum(['day', 'week', 'month']);
+
+export const analyticsRangeQuery = z.object(rangeShape).refine(fromBeforeTo, fromBeforeToOpts);
+export const analyticsTimeSeriesQuery = z
+  .object({ ...rangeShape, granularity: granularity.optional() })
+  .refine(fromBeforeTo, fromBeforeToOpts);
+export const analyticsProductsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 // --- Payments ---
 export const paymentVerifyBody = z.object({
   razorpay_order_id: z.string().min(1),

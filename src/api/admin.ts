@@ -72,6 +72,94 @@ export const getCustomers = (page = 1, q = ''): Promise<AdminCustomerListRespons
 export const getCustomer = (id: string): Promise<AdminCustomerDetail> =>
   apiFetch<AdminCustomerDetail>(`/admin/customers/${id}`);
 
+// --- Analytics (/admin/analytics/*) — mirrors server/src/contract.ts ---
+// Money is whole INR rupees; revenue + product units/revenue count PAID orders
+// only. Time buckets + from/to boundaries resolve against IST (UTC+05:30) days;
+// from/to are 'YYYY-MM-DD', both inclusive. No UI consumes these yet — they exist
+// so the next phase can build the Analytics Dashboard with zero backend changes.
+export type AnalyticsGranularity = 'day' | 'week' | 'month';
+
+export interface AnalyticsOverview {
+  revenue: number;
+  orders: number;
+  paidOrders: number;
+  customers: number;
+  averageOrderValue: number;
+  lowStock: number; // current-state, never date-filtered
+  outOfStock: number; // current-state, never date-filtered
+  reviews: number;
+}
+export interface RevenuePoint {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+export interface AnalyticsOrders {
+  fulfillment: { processing: number; shipped: number; delivered: number; cancelled: number };
+  payment: { pendingPayment: number; paid: number; failedPayment: number };
+  shipping: {
+    notShipped: number;
+    shipmentCreated: number;
+    inTransit: number;
+    outForDelivery: number;
+    delivered: number;
+    cancelled: number;
+  };
+}
+export interface TopProduct {
+  productId: string;
+  productName: string;
+  unitsSold: number;
+  revenue: number;
+  orderCount: number;
+}
+export interface AnalyticsCustomers {
+  newCustomers: number;
+  returningCustomers: number;
+  registrationsOverTime: { date: string; count: number }[];
+}
+
+export interface AnalyticsRange {
+  from?: string;
+  to?: string;
+}
+export interface AnalyticsTimeSeriesParams extends AnalyticsRange {
+  granularity?: AnalyticsGranularity;
+}
+
+const analyticsQuery = (params: Record<string, string | number | undefined>): string => {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') usp.set(k, String(v));
+  }
+  const qs = usp.toString();
+  return qs ? `?${qs}` : '';
+};
+
+// GET /admin/analytics/overview — headline metrics (ADMIN only).
+export const getAnalyticsOverview = (params: AnalyticsRange = {}): Promise<AnalyticsOverview> =>
+  apiFetch<AnalyticsOverview>(`/admin/analytics/overview${analyticsQuery({ ...params })}`);
+
+// GET /admin/analytics/revenue — PAID revenue per time bucket (ADMIN only).
+export const getAnalyticsRevenue = (
+  params: AnalyticsTimeSeriesParams = {}
+): Promise<RevenuePoint[]> =>
+  apiFetch<RevenuePoint[]>(`/admin/analytics/revenue${analyticsQuery({ ...params })}`);
+
+// GET /admin/analytics/orders — counts by the three status axes (ADMIN only).
+export const getAnalyticsOrders = (params: AnalyticsRange = {}): Promise<AnalyticsOrders> =>
+  apiFetch<AnalyticsOrders>(`/admin/analytics/orders${analyticsQuery({ ...params })}`);
+
+// GET /admin/analytics/products — top products by units, PAID only (ADMIN only).
+export const getAnalyticsProducts = (limit?: number): Promise<TopProduct[]> =>
+  apiFetch<TopProduct[]>(`/admin/analytics/products${analyticsQuery({ limit })}`);
+
+// GET /admin/analytics/customers — new/returning buyers + registrations (ADMIN only).
+export const getAnalyticsCustomers = (
+  params: AnalyticsTimeSeriesParams = {}
+): Promise<AnalyticsCustomers> =>
+  apiFetch<AnalyticsCustomers>(`/admin/analytics/customers${analyticsQuery({ ...params })}`);
+
 // --- Order status ---
 export type OrderStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export const updateOrderStatus = (id: string, status: OrderStatus): Promise<ApiOrder> =>

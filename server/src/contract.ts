@@ -176,3 +176,63 @@ export interface AdminCustomerListResponse {
 export interface AdminCustomerDetail extends AdminCustomerListItem {
   orders: ApiOrder[];
 }
+
+// --- Admin analytics (/admin/analytics/*) ---
+// Separate namespace from AdminStats (which stays backward-compatible). Money is
+// whole INR rupees; revenue + product units/revenue count PAID orders only. All
+// time-series bucket + from/to boundaries resolve against IST (UTC+05:30) days.
+
+// GET /admin/analytics/overview — headline metrics. Revenue/orders/customers/
+// reviews respect the date filter; inventory (lowStock/outOfStock) is always
+// current-state (never date-filtered).
+export interface AnalyticsOverview {
+  revenue: number;
+  orders: number;
+  paidOrders: number;
+  customers: number;
+  averageOrderValue: number;
+  lowStock: number;
+  outOfStock: number;
+  reviews: number;
+}
+
+// GET /admin/analytics/revenue — PAID revenue + paid-order count per bucket,
+// oldest→newest, zero-filled across the (default or requested) window.
+export interface RevenuePoint {
+  date: string; // day 'YYYY-MM-DD' | week Monday 'YYYY-MM-DD' | month 'YYYY-MM'
+  revenue: number;
+  orders: number;
+}
+
+// GET /admin/analytics/orders — counts grouped by THREE independent status axes.
+// An order is in exactly one state on each axis simultaneously; the nesting makes
+// that explicit rather than implying one flat mutually-exclusive field.
+export interface AnalyticsOrders {
+  fulfillment: { processing: number; shipped: number; delivered: number; cancelled: number };
+  payment: { pendingPayment: number; paid: number; failedPayment: number };
+  shipping: {
+    notShipped: number;
+    shipmentCreated: number;
+    inTransit: number;
+    outForDelivery: number;
+    delivered: number;
+    cancelled: number;
+  };
+}
+
+// GET /admin/analytics/products — top products by units sold (PAID only).
+export interface TopProduct {
+  productId: string;
+  productName: string; // denormalized OrderItem.name (survives product hard-delete)
+  unitsSold: number;
+  revenue: number;
+  orderCount: number;
+}
+
+// GET /admin/analytics/customers — new/returning BUYERS over the window (order-
+// activity based), plus a separate account-registration series.
+export interface AnalyticsCustomers {
+  newCustomers: number; // first-ever order falls within the window
+  returningCustomers: number; // ordered in window AND has ≥1 order before `from`
+  registrationsOverTime: { date: string; count: number }[]; // signups per bucket, zero-filled
+}
