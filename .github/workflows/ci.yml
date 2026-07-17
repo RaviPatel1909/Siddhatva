@@ -119,3 +119,33 @@ jobs:
           path: test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Lightweight, fast security gate: production dependency vulnerabilities +
+  # a working-tree secret scan. Runs in parallel with build/e2e.
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Dependency audit — PRODUCTION deps only (what actually ships), failing on
+      # high/critical advisories. `--omit=dev` keeps build-tool noise out of the
+      # gate. Runs from the committed lockfile; no install needed.
+      - name: npm audit (frontend, prod deps)
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (server, prod deps)
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: server
+
+      # Secret scan of the working tree only (`--no-git`), so purged historical
+      # placeholders can't cause noise; `.gitleaks.toml` allowlists known fixtures.
+      # `--redact` keeps any match out of the logs. Pinned version for stability.
+      - name: Secret scan (gitleaks)
+        run: |
+          VERSION=8.18.4
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks detect --no-git --source . --config .gitleaks.toml --redact --verbose

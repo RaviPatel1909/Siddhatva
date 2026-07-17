@@ -1,0 +1,45 @@
+# gitleaks config for the CI secret scan (see .github/workflows/ci.yml).
+# Extends gitleaks' built-in rules and allowlists the repo's KNOWN-safe
+# non-secrets — dev fallbacks, mock values, test fixtures, .env.example
+# placeholders, and docs — so the scan fails only on a REAL leaked secret.
+# Real secrets never live in the tree: `.env` is gitignored; only `.env.example`
+# placeholders are committed.
+
+title = "Siddhatva gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders, dev fallbacks, mock secrets, test fixtures, and docs — not real secrets."
+
+# Files that legitimately contain placeholder / fixture / documented example values,
+# or high-entropy non-secrets (lockfile integrity hashes, bundled image asset ids).
+# Path separators are written as [/\\] so the allowlist matches on both the Linux CI
+# runner (forward slashes) and a local Windows scan (backslashes).
+paths = [
+  '''(^|[/\\])\.env\.example$''',
+  '''(^|[/\\])ci\.yml$''',
+  '''(^|[/\\])e2e[/\\].*''',
+  '''(^|[/\\])docs[/\\].*''',
+  '''.*\.md$''',
+  '''(^|[/\\])server[/\\]\.mail[/\\].*''', # dev-only rendered email output (gitignored; has reset-link tokens)
+  '''(^|[/\\])package-lock\.json$''',
+  '''(^|[/\\])src[/\\]data[/\\].*''',
+  '''(^|[/\\])server[/\\]prisma[/\\]seed\.ts$''',
+  '''(^|[/\\])server[/\\]src[/\\]env\.ts$''',
+  '''(^|[/\\])server[/\\]src[/\\]lib[/\\]payments\.ts$''',
+  '''(^|[/\\])server[/\\]src[/\\]lib[/\\]shipping[/\\]mock\.ts$''',
+]
+
+# Known non-secret string values that may appear anywhere.
+regexes = [
+  '''change-me-in-production''',
+  '''dev-only-access-secret-change-me''',
+  '''mock-key-secret''',
+  '''mock-webhook-secret''',
+  '''mock-shiprocket-webhook-token''',
+  '''e2e-fixture-[a-z-]+''',
+  '''postgres:postgres''',
+  '''AB6AXu[A-Za-z0-9_-]{20,}''', # Google-hosted bundled image asset ids (not secrets)
+]
