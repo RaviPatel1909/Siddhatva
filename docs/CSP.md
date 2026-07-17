@@ -55,6 +55,20 @@ hits for some regions. This is Google's own recommended CSP. No bare `*`, no
 3. Added `upgrade-insecure-requests`.
 4. Header flipped `Content-Security-Policy-Report-Only` → `Content-Security-Policy`.
 
+## Sibling header: Permissions-Policy
+
+Set alongside the CSP in the same `vercel.json` block. It **disables every browser
+capability by default** and only re-enables what a legitimate feature needs. The app
+itself uses none of these APIs (verified — no `navigator.geolocation/mediaDevices/
+clipboard/share`, no `getUserMedia`/`PaymentRequest`/`requestFullscreen` in `src/`);
+the sole consumer is the Razorpay Checkout iframe.
+
+| Capability | Value | Reason |
+|---|---|---|
+| `payment` | `(self "https://checkout.razorpay.com" "https://api.razorpay.com")` | Razorpay Checkout may use the Payment Request API (e.g. Google Pay / wallets) inside its iframe. Restricted to our origin + Razorpay. |
+| `fullscreen` | `(self "https://checkout.razorpay.com")` | Razorpay Checkout can request fullscreen on mobile. Low-risk; not used by our own UI. |
+| everything else | `()` | **Disabled for all origins** — `accelerometer, autoplay, camera, clipboard-read, clipboard-write, display-capture, encrypted-media, gamepad, geolocation, gyroscope, hid, idle-detection, magnetometer, microphone, midi, picture-in-picture, publickey-credentials-get, screen-wake-lock, serial, speaker-selection, usb, web-share, xr-spatial-tracking`. None are used; unknown tokens are safely ignored by browsers. |
+
 ## Validation & rollback
 - **Validate on a Vercel preview deployment** (the header is Vercel-applied), with the
   browser console open, before promoting to production. Exercise: home/collections/
