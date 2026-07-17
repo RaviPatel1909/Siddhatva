@@ -2,7 +2,8 @@
 // 12. FOOTER
 // ============================================================================
 import React, { useState } from 'react';
- 
+import { Link } from 'react-router-dom';
+
 interface FooterProps {
   brandName?: string;
   brandDescription?: string;
@@ -64,15 +65,20 @@ export const Footer: React.FC<FooterProps> = ({
             Shop
           </h4>
           <ul className="flex flex-col gap-base">
-            {['Men', 'Women', 'Kids', 'Collections'].map((link) => (
-              <li key={link}>
-                <a
-                  href="#"
+            {[
+              { label: 'Men', to: '/shop/Men' },
+              { label: 'Women', to: '/shop/Women' },
+              { label: 'Kids', to: '/shop/Kids' },
+              { label: 'Collections', to: '/shop' },
+            ].map((link) => (
+              <li key={link.label}>
+                <Link
+                  to={link.to}
                   className="font-body-md text-body-md text-on-background/70
                            hover:text-primary transition-colors"
                 >
-                  {link}
-                </a>
+                  {link.label}
+                </Link>
               </li>
             ))}
           </ul>
@@ -84,15 +90,20 @@ export const Footer: React.FC<FooterProps> = ({
             Support
           </h4>
           <ul className="flex flex-col gap-base">
-            {['Shipping', 'Returns', 'Contact', 'About Us'].map((link) => (
-              <li key={link}>
-                <a
-                  href="#"
+            {[
+              { label: 'Shipping Policy', to: '/shipping-policy' },
+              { label: 'Cancellation & Refund', to: '/refund-policy' },
+              { label: 'Pricing Policy', to: '/pricing-policy' },
+              { label: 'Contact Us', to: '/contact' },
+            ].map((link) => (
+              <li key={link.label}>
+                <Link
+                  to={link.to}
                   className="font-body-md text-body-md text-on-background/70
                            hover:text-primary transition-colors"
                 >
-                  {link}
-                </a>
+                  {link.label}
+                </Link>
               </li>
             ))}
           </ul>
@@ -146,20 +157,20 @@ export const Footer: React.FC<FooterProps> = ({
           © 2024 {brandName}. All rights reserved.
         </p>
         <div className="flex gap-md">
-          <a
-            href="#"
+          <Link
+            to="/privacy"
             className="font-body-md text-on-background/60
                       hover:text-primary text-sm transition-colors"
           >
             Privacy Policy
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/terms"
             className="font-body-md text-on-background/60
                       hover:text-primary text-sm transition-colors"
           >
             Terms of Service
-          </a>
+          </Link>
         </div>
       </div>
     </footer>
