@@ -2,7 +2,8 @@ import { http, HttpResponse, delay } from 'msw';
 import { products } from '../data/products';
 import { orders as seedOrders } from '../data/orders';
 import { getProductById } from '../data/products';
-import { Order } from '../types/order';
+import { Order, OrderItem } from '../types/order';
+import { totalsFor } from '../lib/pricing';
 import {
   ApiProduct,
   OrderListResponse,
@@ -170,13 +171,48 @@ export const handlers = [
     return HttpResponse.json(body);
   }),
 
-  // POST /orders — accept the order and echo it with a server status. The
-  // client's OrdersContext persists to the store that GET /orders reads, so the
-  // new order round-trips here just as it does against the real backend.
+  // POST /orders — the client sends only identity + variant + quantity; the
+  // server is authoritative for all money, so (like the real backend) the mock
+  // derives every price/total from the catalog rather than trusting the request.
+  // Kept in lockstep with server/src/lib/checkout.ts + pricing.ts.
   http.post(`${API}/orders`, async ({ request }) => {
     if (shouldFail('orders')) return fail();
-    const order = (await request.json()) as Record<string, unknown>;
-    return HttpResponse.json({ ...order, status: 'processing' }, { status: 201 });
+    const body = (await request.json()) as {
+      customerName: string;
+      items: { productId: string; colorId?: string; size?: string; quantity: number }[];
+      shippingAddress: Order['shippingAddress'];
+    };
+
+    const items: OrderItem[] = body.items.map((line) => {
+      const product = getProductById(line.productId);
+      const color = product?.colors.find((c) => c.id === line.colorId);
+      return {
+        productId: line.productId,
+        name: product?.name ?? '',
+        image: product?.images[0]?.src ?? '',
+        variant: `${color?.name ?? ''} / ${line.size ?? ''}`,
+        quantity: line.quantity,
+        price: product?.price ?? 0, // DB/catalog price — never the client's
+      };
+    });
+    const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+    const totals = totalsFor(subtotal);
+
+    const order: Order = {
+      id: `SID-${Math.floor(10000 + Math.random() * 89999)}`,
+      customerName: body.customerName,
+      date: new Date().toISOString().slice(0, 10),
+      status: 'processing',
+      paymentStatus: 'PENDING',
+      items,
+      subtotal: totals.subtotal,
+      shipping: totals.shipping,
+      tax: totals.tax,
+      total: totals.total,
+      shippingAddress: body.shippingAddress,
+      shippingStatus: 'not_shipped',
+    };
+    return HttpResponse.json(order, { status: 201 });
   }),
 
   // GET /admin/search — grouped admin typeahead. Kept in lockstep with Express

@@ -13,6 +13,7 @@ import { queryKeys } from '../api/queryKeys';
 import { collectPayment, payInit, verifyPayment } from '../api/payments';
 import { trackBeginCheckout } from '../lib/analytics';
 import { formatPrice } from '../lib/money';
+import { shippingFor, taxFor } from '../lib/pricing';
 
 type Step = 'information' | 'shipping' | 'payment';
 const STEP_LABELS = ['Cart', 'Information', 'Shipping', 'Payment'];
@@ -56,10 +57,11 @@ export const CheckoutShippingPage: React.FC = () => {
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
 
-  const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
-  // Round tax so money stays whole-rupee integers → the displayed ₹ total equals
-  // the Razorpay charge (total × 100 paise) exactly. See src/lib/money.ts.
-  const tax = Math.round(subtotal * 0.08);
+  // Display figures only — the server recomputes and is authoritative for what's
+  // charged. Uses the shared pricing rules (src/lib/pricing.ts) so what the
+  // shopper sees matches the server's total exactly.
+  const shipping = shippingFor(subtotal);
+  const tax = taxFor(subtotal);
   const total = subtotal + shipping + tax;
 
   // GA4 begin_checkout — fire once when the checkout opens with items in the bag.
@@ -114,7 +116,6 @@ export const CheckoutShippingPage: React.FC = () => {
       if (!orderId) {
         const order = await placeOrder({
           items,
-          totals: { subtotal, shipping, tax, total },
           customerName: `${values.firstName} ${values.lastName}`,
           shippingAddress: {
             name: `${values.firstName} ${values.lastName}`,
