@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Seo } from '../../components/seo/Seo';
@@ -7,10 +7,11 @@ import { StatCard } from '../../components/shared/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
 import { AnalyticsCard } from '../../components/admin/analytics/AnalyticsCard';
+import { AnalyticsFilterBar } from '../../components/admin/analytics/AnalyticsFilterBar';
 import { getAnalyticsOverview, type AnalyticsOverview } from '../../api/admin';
 import { queryKeys } from '../../api/queryKeys';
 import { formatPrice } from '../../lib/money';
-import { DEFAULT_PRESET, resolveRange } from '../../lib/analyticsFilters';
+import { parsePreset, resolveRange, type RangePreset } from '../../lib/analyticsFilters';
 
 // KPI tile definitions — value pulled from the overview DTO, money via formatPrice.
 const KPI_TILES: {
@@ -32,8 +33,38 @@ const KPI_TILES: {
 ];
 
 export const AnalyticsPage: React.FC = () => {
-  // Fixed default range for now; the filter bar wires this to the URL next.
-  const { from, to } = resolveRange(DEFAULT_PRESET);
+  // The filter selection lives in the URL — shareable + back-button friendly.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const preset = parsePreset(searchParams.get('range'));
+  const urlFrom = searchParams.get('from');
+  const urlTo = searchParams.get('to');
+  const resolved = useMemo(
+    () => resolveRange(preset, urlFrom, urlTo),
+    [preset, urlFrom, urlTo]
+  );
+  const { from, to } = resolved;
+
+  const selectPreset = (next: RangePreset) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set('range', next);
+      if (next !== 'custom') {
+        params.delete('from');
+        params.delete('to');
+      }
+      return params;
+    });
+  };
+
+  const applyCustom = (customFrom: string, customTo: string) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set('range', 'custom');
+      params.set('from', customFrom);
+      params.set('to', customTo);
+      return params;
+    });
+  };
 
   const overview = useQuery({
     queryKey: queryKeys.adminAnalyticsOverview(from, to),
@@ -54,6 +85,13 @@ export const AnalyticsPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <AnalyticsFilterBar
+        preset={preset}
+        resolved={resolved}
+        onSelectPreset={selectPreset}
+        onApplyCustom={applyCustom}
+      />
 
       {/* KPI cards — all eight from GET /admin/analytics/overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
