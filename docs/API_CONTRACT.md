@@ -276,28 +276,58 @@ interface OrderListResponse {
 Create an order — the checkout write path. Persists the order and returns it in
 the same shape `GET /orders` returns.
 
+> **The server is the single source of truth for all money.** Every monetary
+> value — each item's unit `price`, `subtotal`, `shipping`, `tax`, `discount`,
+> and `total` — is **computed server-side from the database price** at order
+> creation. The client cannot influence any amount; a client that reduces a
+> price/subtotal/total in the request cannot reduce what it is charged. See the
+> "Pricing (server-authoritative)" note below.
+
 **Request body** (`application/json`) — `CreateOrderInput`:
 
 ```ts
+interface CreateOrderItemInput {
+  productId: string;
+  colorId: string;   // together with `size`, selects the variant (for price + stock)
+  size: string;
+  quantity: number;  // integer 1..100
+}
+
 interface CreateOrderInput {
-  id?: string;   // client-supplied; server generates one if absent
-  date?: string; // "YYYY-MM-DD"; server uses today if absent
   customerName: string;
-  items: OrderItem[];
-  subtotal: number;
-  shipping: number;
-  tax: number;
-  total: number;
+  items: CreateOrderItemInput[];
   shippingAddress: Address;
 }
 ```
 
-`status` is assigned server-side (`processing`).
+Only product identity, variant, quantity, and the shipping address are required.
+`status` (`processing`), `id`, and `date` are assigned server-side.
 
-**Response `201`** — the created `Order`.
+**Backward compatibility.** The request schema still *accepts* the legacy fields —
+top-level `id`, `date`, `subtotal`, `shipping`, `tax`, `total`, `discount`, and
+per-item `name`/`image`/`price`/`variant` — so an older client keeps working, but
+**every one of them is ignored.** The legacy per-item `variant` display string
+(e.g. `"Champagne / M"`) is honored *only* as a fallback to resolve the variant
+when `colorId`/`size` are absent; it never sets a price.
+
+**Pricing (server-authoritative).** For each requested line the server loads the
+product, verifies it exists and is sellable (`status` not `draft`/`out-of-stock`),
+resolves the variant, and validates stock. It then computes:
+`lineTotal = dbUnitPrice × quantity`; `subtotal = Σ lineTotal`;
+`shipping = 0 when subtotal is 0 or > 500, else 15`; `tax = round(subtotal × 0.08)`;
+`discount = 0` (no coupons yet — reserved); `total = subtotal + shipping + tax − discount`.
+Duplicate lines (same product + variant) are merged before the stock check so
+quantity cannot be split to bypass it. The persisted item `price` is the unit
+price actually charged, so **future catalog price changes never alter existing
+orders**.
+
+**Response `201`** — the created `Order` (with server-computed money).
 
 **Errors:**
-- `400 { "message": "Validation failed", "issues": [...] }` on invalid input.
+- `400 { "message": "Validation failed", "issues": [...] }` on invalid input
+  (missing identity, `quantity` < 1 or > 100, non-integer, etc.).
+- `422 { "message": string }` when the order cannot be fulfilled: unknown/deleted
+  product, non-sellable product, unavailable variant, or insufficient/zero stock.
 - `500 { "message": string }` on server error.
 
 ---

@@ -9,6 +9,7 @@ import { OrderListResponse } from '../contract';
 import { orderEvents } from '../lib/events';
 import { MockGateway, paymentGateway } from '../lib/payments';
 import { markOrderPaid } from '../lib/orderPayments';
+import { buildOrderDraft } from '../lib/checkout';
 
 export const ordersRouter = Router();
 
@@ -30,6 +31,12 @@ ordersRouter.get(
 );
 
 // POST /orders — create an order for the authenticated user (payment PENDING).
+//
+// The server is authoritative for ALL money: buildOrderDraft loads each product,
+// validates it (existence / sellability / variant / stock), and computes prices,
+// subtotal, shipping, tax, and total from the DB — every client-supplied monetary
+// value is ignored. So the amount later charged (pay-init uses order.total) can
+// never be reduced by tampering with the request. See lib/checkout.ts.
 ordersRouter.post(
   '/',
   // Cap order-creation abuse per IP (already auth-gated). Headroom above the e2e
@@ -37,22 +44,31 @@ ordersRouter.post(
   rateLimit({ windowMs: 15 * 60 * 1000, max: 60, name: 'checkout' }),
   asyncHandler(async (req, res) => {
     const input = createOrderBody.parse(req.body);
-    const id = input.id ?? `SID-${Math.floor(10000 + Math.random() * 89999)}`;
-    const date = input.date ?? new Date().toISOString().slice(0, 10);
+    const draft = await buildOrderDraft(input);
 
     const order = await prisma.order.create({
       data: {
-        id,
+        id: draft.id,
         user: { connect: { id: req.user!.id } },
         customerName: input.customerName,
-        date,
+        date: draft.date,
         status: 'processing',
-        subtotal: input.subtotal,
-        shipping: input.shipping,
-        tax: input.tax,
-        total: input.total,
+        subtotal: draft.pricing.subtotal,
+        shipping: draft.pricing.shipping,
+        tax: draft.pricing.tax,
+        total: draft.pricing.total,
         shippingAddress: { create: { ...input.shippingAddress } },
-        items: { create: input.items.map((it, i) => ({ ...it, position: i })) },
+        items: {
+          create: draft.items.map((it) => ({
+            productId: it.productId,
+            name: it.name,
+            image: it.image,
+            variant: it.variant,
+            quantity: it.quantity,
+            price: it.price,
+            position: it.position,
+          })),
+        },
       },
       include: orderInclude,
     });

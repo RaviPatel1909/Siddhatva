@@ -19,27 +19,47 @@ const addressSchema = z.object({
   country: z.string().min(1),
 });
 
+// Per-line cap — a sane upper bound so a single line can't request an absurd
+// quantity (integer-overflow / abuse guard). Real stock is checked separately in
+// lib/checkout.ts against the DB; a quantity above stock is a 422, above this cap
+// is a 400.
+const MAX_LINE_QUANTITY = 100;
+
+// What checkout actually needs per line: product identity, the variant to buy
+// (colorId + size — used for both pricing and stock), and how many.
+//
+// SECURITY: all monetary/derivable fields (`price`, `name`, `image`) are
+// accepted-but-IGNORED for backward compatibility — the server derives every one
+// from the database (see lib/checkout.ts + lib/pricing.ts). The legacy `variant`
+// display string is honored only as a fallback to resolve the variant when
+// `colorId`/`size` are absent; it never influences price.
 const orderItemSchema = z.object({
   productId: z.string().min(1),
-  name: z.string().min(1),
-  image: z.string(),
-  variant: z.string(),
-  quantity: z.number().int().min(1),
-  price: z.number(),
+  colorId: z.string().min(1).optional(),
+  size: z.string().min(1).optional(),
+  quantity: z.number().int().min(1).max(MAX_LINE_QUANTITY),
+  // Accepted-but-ignored (server is authoritative):
+  variant: z.string().optional(),
+  name: z.string().optional(),
+  image: z.string().optional(),
+  price: z.number().optional(),
 });
 
-// The client builds the order (id/date) and posts it; server accepts them or
-// fills defaults. Status is always assigned server-side ("processing").
+// Checkout write path. The client sends only identity + quantity + address; the
+// server assigns id/date/status and computes ALL money. Legacy monetary fields
+// are accepted (older clients) but IGNORED — never trusted. See docs/API_CONTRACT.md.
 export const createOrderBody = z.object({
-  id: z.string().optional(),
-  date: z.string().optional(),
   customerName: z.string().min(1),
   items: z.array(orderItemSchema).min(1),
-  subtotal: z.number(),
-  shipping: z.number(),
-  tax: z.number(),
-  total: z.number(),
   shippingAddress: addressSchema,
+  // Accepted-but-ignored — server generates / recomputes these:
+  id: z.string().optional(),
+  date: z.string().optional(),
+  subtotal: z.number().optional(),
+  shipping: z.number().optional(),
+  tax: z.number().optional(),
+  total: z.number().optional(),
+  discount: z.number().optional(),
 });
 export type CreateOrderBody = z.infer<typeof createOrderBody>;
 
