@@ -8,10 +8,29 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
 import { AnalyticsCard } from '../../components/admin/analytics/AnalyticsCard';
 import { AnalyticsFilterBar } from '../../components/admin/analytics/AnalyticsFilterBar';
-import { getAnalyticsOverview, type AnalyticsOverview } from '../../api/admin';
+import { RevenueChart } from '../../components/admin/analytics/RevenueChart';
+import { SortSelect } from '../../components/ui/SortSelect';
+import {
+  getAnalyticsOverview,
+  getAnalyticsRevenue,
+  type AnalyticsGranularity,
+  type AnalyticsOverview,
+} from '../../api/admin';
 import { queryKeys } from '../../api/queryKeys';
 import { formatPrice } from '../../lib/money';
-import { parsePreset, resolveRange, type RangePreset } from '../../lib/analyticsFilters';
+import {
+  defaultGranularity,
+  parseGranularity,
+  parsePreset,
+  resolveRange,
+  type RangePreset,
+} from '../../lib/analyticsFilters';
+
+const GRANULARITY_OPTIONS = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+];
 
 // KPI tile definitions — value pulled from the overview DTO, money via formatPrice.
 const KPI_TILES: {
@@ -66,9 +85,22 @@ export const AnalyticsPage: React.FC = () => {
     });
   };
 
+  const granularity = parseGranularity(searchParams.get('granularity')) ?? defaultGranularity(preset);
+  const setGranularity = (next: string) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set('granularity', next);
+      return params;
+    });
+  };
+
   const overview = useQuery({
     queryKey: queryKeys.adminAnalyticsOverview(from, to),
     queryFn: () => getAnalyticsOverview({ from, to }),
+  });
+  const revenue = useQuery({
+    queryKey: queryKeys.adminAnalyticsRevenue(from, to, granularity),
+    queryFn: () => getAnalyticsRevenue({ from, to, granularity }),
   });
 
   const o = overview.data;
@@ -120,6 +152,33 @@ export const AnalyticsPage: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Revenue trend — native SVG chart from GET /admin/analytics/revenue */}
+      <AnalyticsCard
+        title="Revenue Trend"
+        subtitle="Paid revenue over time, in the selected range."
+        icon="show_chart"
+        className="mb-xl"
+        isLoading={revenue.isLoading}
+        isError={revenue.isError}
+        isEmpty={!revenue.isLoading && !revenue.isError && (revenue.data?.length ?? 0) === 0}
+        onRetry={() => revenue.refetch()}
+        loadingHeight="h-64"
+        emptyIcon="show_chart"
+        emptyTitle="No revenue data"
+        emptyDescription="There is no revenue to chart for this period."
+        headerRight={
+          <SortSelect
+            className="w-32"
+            ariaLabel="Chart granularity"
+            options={GRANULARITY_OPTIONS}
+            value={granularity}
+            onChange={(v) => setGranularity(v as AnalyticsGranularity)}
+          />
+        }
+      >
+        {revenue.data && <RevenueChart points={revenue.data} granularity={granularity} />}
+      </AnalyticsCard>
 
       {/* Inventory summary — actionable callout, sourced from the same overview query */}
       <AnalyticsCard
