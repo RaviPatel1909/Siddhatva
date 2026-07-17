@@ -21,17 +21,15 @@ async function login(rc: APIRequestContext): Promise<string> {
   return (await res.json()).accessToken as string;
 }
 
+// Identity-only checkout: the server prices this from the DB (product '1',
+// champagne/XS). Money is never sent from the client.
 async function createOrder(rc: APIRequestContext, token: string) {
   const res = await rc.post(`${API}/orders`, {
     headers: authHeaders(token),
     data: {
       customerName: 'Test Buyer',
-      items: [{ productId: '1', name: 'x', image: '', variant: 'y', quantity: 1, price: 100 }],
-      subtotal: 100,
-      shipping: 0,
-      tax: 8,
-      total: 108,
-      shippingAddress: { name: 'T', line1: '1 St', city: 'NYC', state: 'NY', zip: '10001', country: 'US' },
+      items: [{ productId: '1', colorId: 'champagne', size: 'XS', quantity: 1 }],
+      shippingAddress: { name: 'T', line1: '1 St', city: 'Mumbai', state: 'MH', zip: '400001', country: 'India' },
     },
   });
   return res.json();
@@ -45,7 +43,8 @@ test('payment verification marks the order PAID, idempotently', async () => {
 
   const init = await (await rc.post(`${API}/orders/${order.id}/pay-init`, { headers: authHeaders(token) })).json();
   expect(init.mode).toBe('mock');
-  expect(init.amount).toBe(10800); // 108 * 100 paise
+  // The charged amount comes from the server-computed order total, not the client.
+  expect(init.amount).toBe(Math.round(order.total * 100));
 
   const mock = await (await rc.post(`${API}/orders/${order.id}/pay-mock`, { headers: authHeaders(token) })).json();
   const v1 = await (await rc.post(`${API}/orders/verify`, { headers: authHeaders(token), data: mock })).json();

@@ -25,16 +25,18 @@ async function login(rc: APIRequestContext, who: { email: string; password: stri
   return (await res.json()).accessToken as string;
 }
 
-async function createOrder(rc: APIRequestContext, token: string, total: number) {
+// Two distinct variants of product '1' at qty 1 each → 2 units sold, and both fit
+// the seeded per-variant stock. The total is computed server-side from DB prices;
+// callers read it back off the returned order rather than dictating it.
+async function createOrder(rc: APIRequestContext, token: string) {
   const res = await rc.post(`${API}/orders`, {
     headers: auth(token),
     data: {
       customerName: 'Analytics Buyer',
-      items: [{ productId: '1', name: 'x', image: '', variant: 'y', quantity: 2, price: total / 2 }],
-      subtotal: total,
-      shipping: 0,
-      tax: 0,
-      total,
+      items: [
+        { productId: '1', colorId: 'champagne', size: 'XS', quantity: 1 },
+        { productId: '1', colorId: 'taupe', size: 'XS', quantity: 1 },
+      ],
       shippingAddress: { name: 'T', line1: '1 St', city: 'Mumbai', state: 'MH', zip: '400001', country: 'India' },
     },
   });
@@ -167,8 +169,9 @@ test.describe('analytics API', () => {
     expect(beforeBucket, 'today bucket exists in the day series').toBeTruthy();
 
     // Create a PENDING order — it must NOT move revenue/paidOrders (PAID-only rule).
-    const order = await createOrder(rc, customerToken, 4322);
+    const order = await createOrder(rc, customerToken);
     expect(order.paymentStatus).toBe('PENDING');
+    expect(order.total).toBeGreaterThan(0); // server-priced from the DB
 
     const afterCreate = await overviewToday();
     expect(afterCreate.orders).toBe(before.orders + 1); // all orders counts it

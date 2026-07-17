@@ -17,17 +17,14 @@ async function login(rc: APIRequestContext, email: string, password: string): Pr
   return (await res.json()).accessToken as string;
 }
 
+// Identity-only checkout — the server prices it from the DB (product '1').
 async function createOrder(rc: APIRequestContext, token: string) {
   const res = await rc.post(`${API}/orders`, {
     headers: authHeaders(token),
     data: {
       customerName: 'Ship Test',
-      items: [{ productId: '1', name: 'x', image: '', variant: 'y', quantity: 1, price: 100 }],
-      subtotal: 100,
-      shipping: 0,
-      tax: 8,
-      total: 108,
-      shippingAddress: { name: 'T', line1: '1 St', city: 'NYC', state: 'NY', zip: '10001', country: 'US' },
+      items: [{ productId: '1', colorId: 'champagne', size: 'XS', quantity: 1 }],
+      shippingAddress: { name: 'T', line1: '1 St', city: 'Mumbai', state: 'MH', zip: '400001', country: 'India' },
     },
   });
   return res.json();
