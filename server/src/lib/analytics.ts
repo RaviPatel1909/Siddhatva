@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
-import { AnalyticsOverview, RevenuePoint } from '../contract';
+import { AnalyticsOrders, AnalyticsOverview, RevenuePoint } from '../contract';
 
 export type Granularity = 'day' | 'week' | 'month';
 
@@ -195,4 +195,48 @@ export async function getRevenueSeries(
   }
   for (const p of series) p.revenue = Math.round(p.revenue);
   return series;
+}
+
+// GET /admin/analytics/orders — counts across the THREE independent status axes
+// (fulfillment / payment / shipping). One groupBy per axis (parallel, no N+1);
+// each named bucket defaults to 0, so an empty store returns all zeros.
+export async function getOrderBreakdown(range: {
+  from?: string;
+  to?: string;
+}): Promise<AnalyticsOrders> {
+  const createdAt = istRangeFilter(range.from, range.to);
+  const where: Prisma.OrderWhereInput = createdAt ? { createdAt } : {};
+
+  const [byStatus, byPayment, byShipping] = await Promise.all([
+    prisma.order.groupBy({ by: ['status'], where, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['paymentStatus'], where, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['shippingStatus'], where, _count: { _all: true } }),
+  ]);
+
+  const statusN = new Map(byStatus.map((g) => [g.status, g._count._all]));
+  const paymentN = new Map(byPayment.map((g) => [g.paymentStatus, g._count._all]));
+  const shippingN = new Map(byShipping.map((g) => [g.shippingStatus, g._count._all]));
+  const at = (m: Map<string, number>, k: string) => m.get(k) ?? 0;
+
+  return {
+    fulfillment: {
+      processing: at(statusN, 'processing'),
+      shipped: at(statusN, 'shipped'),
+      delivered: at(statusN, 'delivered'),
+      cancelled: at(statusN, 'cancelled'),
+    },
+    payment: {
+      pendingPayment: at(paymentN, 'PENDING'),
+      paid: at(paymentN, 'PAID'),
+      failedPayment: at(paymentN, 'FAILED'),
+    },
+    shipping: {
+      notShipped: at(shippingN, 'not_shipped'),
+      shipmentCreated: at(shippingN, 'shipment_created'),
+      inTransit: at(shippingN, 'in_transit'),
+      outForDelivery: at(shippingN, 'out_for_delivery'),
+      delivered: at(shippingN, 'delivered'),
+      cancelled: at(shippingN, 'cancelled'),
+    },
+  };
 }

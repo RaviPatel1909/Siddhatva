@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/http';
 import { analyticsRangeQuery, analyticsTimeSeriesQuery } from '../schemas';
-import { getOverview, getRevenueSeries } from '../lib/analytics';
+import { getOrderBreakdown, getOverview, getRevenueSeries } from '../lib/analytics';
 
 // /admin/analytics/* — mounted under the admin router, so it inherits
 // requireAuth + requireAdmin. Handlers stay thin: parse+validate the query with
@@ -24,5 +24,14 @@ adminAnalyticsRouter.get(
   asyncHandler(async (req, res) => {
     const { from, to, granularity } = analyticsTimeSeriesQuery.parse(req.query);
     res.json(await getRevenueSeries({ from, to }, granularity));
+  })
+);
+
+// GET /admin/analytics/orders?from&to
+adminAnalyticsRouter.get(
+  '/orders',
+  asyncHandler(async (req, res) => {
+    const query = analyticsRangeQuery.parse(req.query);
+    res.json(await getOrderBreakdown(query));
   })
 );
