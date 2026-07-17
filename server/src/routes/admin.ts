@@ -24,6 +24,7 @@ import {
 } from '../contract';
 import { imageStore, LocalImageStore } from '../lib/imageStore';
 import { adminProductsRouter } from './adminProducts';
+import { adminAnalyticsRouter } from './adminAnalytics';
 import { orderStatusBody, homeContentSchema } from '../schemas';
 import { HOME_KEY } from '../lib/homeContent';
 import { Prisma } from '@prisma/client';
@@ -125,6 +126,7 @@ adminRouter.patch(
 
 // Product CRUD lives under /admin/products.
 adminRouter.use('/products', adminProductsRouter);
+adminRouter.use('/analytics', adminAnalyticsRouter);
 
 // GET /admin/orders — every order across all customers, newest first.
 adminRouter.get(
