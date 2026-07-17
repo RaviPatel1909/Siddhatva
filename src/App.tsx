@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
+import { PreferencesProvider } from './context/PreferencesContext';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
@@ -120,6 +121,7 @@ function App() {
   return (
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
+        <PreferencesProvider>
         <AuthProvider>
         <CartProvider>
           <WishlistProvider>
@@ -132,6 +134,7 @@ function App() {
           </WishlistProvider>
         </CartProvider>
         </AuthProvider>
+        </PreferencesProvider>
       </QueryClientProvider>
     </HelmetProvider>
   );

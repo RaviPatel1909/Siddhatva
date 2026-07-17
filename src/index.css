@@ -118,6 +118,30 @@
   }
 }
 
+/* In-app "Reduce motion" preference (Settings → Preferences). The
+   PreferencesContext sets data-reduce-motion="true" on <html>; these rules
+   mirror the prefers-reduced-motion block above so a user can force reduced
+   motion regardless of their OS setting. The attribute selector outranks the
+   plain animation classes, so it wins the cascade. */
+html[data-reduce-motion='true'] {
+  scroll-behavior: auto !important;
+}
+
+html[data-reduce-motion='true'] .page-enter,
+html[data-reduce-motion='true'] .fade-in-up {
+  animation: none;
+}
+
+html[data-reduce-motion='true'] .confetti-piece {
+  display: none;
+}
+
+html[data-reduce-motion='true'] .fade-in-section {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
 .grain-overlay::after {
   content: '';
   position: fixed;

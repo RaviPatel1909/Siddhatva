@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { label: 'Overview', href: '/account', icon: 'dashboard' },
   { label: 'Orders', href: '/account/orders', icon: 'package_2' },
   { label: 'Wishlist', href: '/account/wishlist', icon: 'favorite' },
-  { label: 'Profile', href: '/account/profile', icon: 'person' },
+  { label: 'Settings', href: '/account/profile', icon: 'settings' },
 ];
 
 export const AccountSidebar: React.FC = () => {

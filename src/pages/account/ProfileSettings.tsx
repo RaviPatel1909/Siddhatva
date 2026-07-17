@@ -1,152 +1,234 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AccountLayout } from '../../components/layout/AccountLayout';
+import { Seo } from '../../components/seo/Seo';
+import { Button } from '../../components/ui/Button';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
+import { useAuth } from '../../context/AuthContext';
+import { usePreferences } from '../../context/PreferencesContext';
+import { forgotPasswordRequest } from '../../api/auth';
 
-const inputClass =
-  'w-full bg-surface border border-outline-variant rounded-lg px-md py-sm font-body-md text-sm ' +
-  'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all';
+const cardClass = 'bg-surface-container-low rounded-xl border border-outline-variant/20 p-lg md:p-xl';
+const sectionTitleClass = 'font-display text-headline-md text-primary';
 
-const labelClass = 'font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant block mb-xs';
+// Initials for the identity avatar — first letter of the first two name words.
+const initialsOf = (name: string): string =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('') || '·';
 
-const NOTIFICATION_CHANNELS = [
-  { key: 'email', icon: 'mail', title: 'Email Updates', description: 'Order confirmations and shipping updates.' },
-  { key: 'sms', icon: 'sms', title: 'SMS Alerts', description: 'Real-time delivery alerts to your phone.' },
-  { key: 'promotions', icon: 'local_offer', title: 'Promotions', description: 'Early access to sales and new collections.' },
+type ResetState = 'idle' | 'sending' | 'sent' | 'error';
+
+const NOTIFICATION_STREAMS = [
+  { icon: 'receipt_long', title: 'Order confirmations', description: 'Sent when your payment is confirmed.' },
+  { icon: 'local_shipping', title: 'Shipping updates', description: 'Sent when your order is dispatched.' },
 ] as const;
 
 export const ProfileSettingsPage: React.FC = () => {
-  const [notifications, setNotifications] = useState<Record<string, boolean>>({
-    email: true,
-    sms: false,
-    promotions: true,
-  });
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { reduceMotion, setReduceMotion } = usePreferences();
+
+  const [resetState, setResetState] = useState<ResetState>('idle');
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Reuse the real, enumeration-safe reset flow: email the user a link. Completing
+  // it sets a new password AND revokes every refresh token (all sessions logout).
+  const sendResetLink = async () => {
+    if (!user) return;
+    setResetState('sending');
+    try {
+      await forgotPasswordRequest({ email: user.email });
+      setResetState('sent');
+    } catch {
+      setResetState('error');
+    }
+  };
+
+  const signOut = async () => {
+    setSigningOut(true);
+    await logout();
+    navigate('/');
+  };
+
+  if (!user) return null; // ProtectedRoute guarantees a user; satisfies the type
 
   return (
     <AccountLayout>
-      <h1 className="font-display text-3xl text-primary mb-xl">Profile Settings</h1>
+      <Seo title="Settings" noindex />
+
+      <div className="mb-xl">
+        <h1 className="font-display text-3xl text-primary">Settings</h1>
+        <p className="font-body-md text-sm text-on-surface-variant mt-xs">
+          Manage your account, security, and preferences.
+        </p>
+      </div>
 
       <div className="space-y-xl max-w-3xl">
-        {/* Personal Information */}
-        <section className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-lg md:p-xl">
-          <h2 className="font-display text-headline-md text-primary mb-lg">Personal Information</h2>
-          <div className="flex items-center gap-lg mb-lg">
-            <div className="relative w-20 h-20 rounded-full bg-secondary-container overflow-hidden group cursor-pointer">
-              <div className="w-full h-full flex items-center justify-center text-on-secondary-container font-display text-2xl">
-                AS
-              </div>
-              <div className="absolute inset-0 bg-on-background/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="material-symbols-outlined text-white">photo_camera</span>
-              </div>
+        {/* ── Account ─────────────────────────────────────────────── */}
+        <section className={cardClass} aria-labelledby="settings-account">
+          <h2 id="settings-account" className={`${sectionTitleClass} mb-lg`}>
+            Account
+          </h2>
+
+          <div className="flex items-center gap-lg">
+            <div
+              aria-hidden
+              className="w-16 h-16 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-display text-xl shrink-0"
+            >
+              {initialsOf(user.name)}
             </div>
-            <div>
-              <p className="font-medium text-on-surface">Profile Photo</p>
-              <p className="text-sm text-on-surface-variant">JPG or PNG, up to 5MB</p>
+            <div className="min-w-0">
+              <p className="font-medium text-on-surface truncate">{user.name}</p>
+              <p className="text-sm text-on-surface-variant truncate">{user.email}</p>
+              <span className="inline-flex items-center gap-xs mt-xs rounded-full bg-secondary-container/60 px-sm py-[2px] text-[11px] uppercase tracking-widest text-on-secondary-container">
+                <span className="material-symbols-outlined text-[14px]">
+                  {user.role === 'ADMIN' ? 'shield_person' : 'person'}
+                </span>
+                {user.role === 'ADMIN' ? 'Administrator' : 'Customer'}
+              </span>
             </div>
           </div>
-          <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-            <div>
-              <label className={labelClass}>Full Name</label>
-              <input type="text" defaultValue="Alexander Sterling" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Email Address</label>
-              <input type="email" defaultValue="alexander@siddhatva.com" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Phone Number</label>
-              <div className="flex gap-xs">
-                <select className={`${inputClass} w-24`} defaultValue="+44">
-                  <option value="+44">+44</option>
-                  <option value="+1">+1</option>
-                  <option value="+33">+33</option>
-                </select>
-                <input type="tel" defaultValue="7700 900123" className={inputClass} />
-              </div>
-            </div>
-            <div className="sm:col-span-2 flex justify-end pt-sm">
-              <button
-                type="submit"
-                className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-sm text-sm uppercase tracking-widest hover:opacity-90 transition-opacity active:scale-95"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </section>
 
-        {/* Security */}
-        <section className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-lg md:p-xl">
-          <h2 className="font-display text-headline-md text-primary mb-lg">Security</h2>
-          <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Current Password</label>
-              <input type="password" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>New Password</label>
-              <input type="password" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Confirm Password</label>
-              <input type="password" className={inputClass} />
-            </div>
-            <div className="sm:col-span-2 flex items-center justify-between pt-sm">
-              <button type="button" className="text-sm text-primary hover:underline">
-                Forgot password?
-              </button>
-              <button
-                type="submit"
-                className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-sm text-sm uppercase tracking-widest hover:opacity-90 transition-opacity active:scale-95"
-              >
-                Update Password
-              </button>
-            </div>
-          </form>
-        </section>
-
-        {/* Notifications */}
-        <section className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-lg md:p-xl">
-          <h2 className="font-display text-headline-md text-primary mb-lg">Notification Settings</h2>
-          <div className="space-y-md">
-            {NOTIFICATION_CHANNELS.map((channel) => (
-              <button
-                key={channel.key}
-                onClick={() =>
-                  setNotifications((prev) => ({ ...prev, [channel.key]: !prev[channel.key] }))
-                }
-                className="w-full flex items-center justify-between gap-md p-md rounded-lg border border-outline-variant/20 hover:bg-surface-container-high transition-colors text-left"
-              >
-                <div className="flex items-center gap-md">
-                  <span className="material-symbols-outlined text-primary">{channel.icon}</span>
-                  <div>
-                    <p className="font-medium text-on-surface">{channel.title}</p>
-                    <p className="text-sm text-on-surface-variant">{channel.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-sm">
-                  <span className="text-xs uppercase tracking-widest text-on-surface-variant">
-                    {notifications[channel.key] ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <ToggleSwitch
-                    checked={notifications[channel.key]}
-                    onChange={(checked) => setNotifications((prev) => ({ ...prev, [channel.key]: checked }))}
-                    label={channel.title}
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Danger Zone */}
-        <section className="bg-error-container/20 rounded-xl border border-error/30 p-lg md:p-xl">
-          <h2 className="font-display text-headline-md text-error mb-sm">Danger Zone</h2>
-          <p className="text-sm text-on-surface-variant mb-md">
-            Deactivating your account will remove access to your order history and saved preferences.
+          <p className="text-xs text-on-surface-variant mt-lg">
+            Need to update your name or email? Contact{' '}
+            <Link to="/contact" className="text-primary hover:underline">
+              our team
+            </Link>
+            .
           </p>
-          <button className="border border-error text-error px-lg py-sm rounded-lg font-label-sm text-sm uppercase tracking-widest hover:bg-error hover:text-on-error transition-all">
-            Deactivate Account
-          </button>
+
+          <div className="flex justify-end pt-lg mt-lg border-t border-outline-variant/20">
+            <Button variant="secondary" size="md" onClick={signOut} isLoading={signingOut}>
+              Sign out
+            </Button>
+          </div>
+        </section>
+
+        {/* ── Security ────────────────────────────────────────────── */}
+        <section className={cardClass} aria-labelledby="settings-security">
+          <h2 id="settings-security" className={`${sectionTitleClass} mb-sm`}>
+            Security
+          </h2>
+          <p className="text-sm text-on-surface-variant mb-lg">Password</p>
+
+          {resetState === 'sent' ? (
+            <div className="flex items-start gap-md rounded-lg border border-primary/30 bg-primary/5 p-md">
+              <span className="material-symbols-outlined text-primary shrink-0">mark_email_read</span>
+              <div>
+                <p className="font-medium text-on-surface">Check your inbox</p>
+                <p className="text-sm text-on-surface-variant">
+                  If an account exists for {user.email}, we&apos;ve sent a link to set a new password.
+                  It expires in 1 hour and signs you out of all devices.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-md rounded-lg border border-outline-variant/20 p-md">
+              <div className="flex items-start gap-md">
+                <span className="material-symbols-outlined text-primary shrink-0">lock_reset</span>
+                <div>
+                  <p className="font-medium text-on-surface">Change your password</p>
+                  <p className="text-sm text-on-surface-variant">
+                    We&apos;ll email a secure reset link to {user.email}. Completing it signs you out
+                    of every device.
+                  </p>
+                  {resetState === 'error' && (
+                    <p className="text-xs text-danger mt-xs">
+                      Something went wrong. Please try again.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0 sm:pl-md">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={sendResetLink}
+                  isLoading={resetState === 'sending'}
+                >
+                  Send reset link
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ── Notifications ───────────────────────────────────────── */}
+        <section className={cardClass} aria-labelledby="settings-notifications">
+          <h2 id="settings-notifications" className={`${sectionTitleClass} mb-sm`}>
+            Notifications
+          </h2>
+          <p className="text-sm text-on-surface-variant mb-lg">
+            We send transactional emails to <span className="text-on-surface">{user.email}</span> so
+            you can follow your purchases. These keep you informed and can&apos;t be turned off.
+          </p>
+          <ul className="space-y-md">
+            {NOTIFICATION_STREAMS.map((stream) => (
+              <li
+                key={stream.title}
+                className="flex items-center gap-md p-md rounded-lg border border-outline-variant/20"
+              >
+                <span className="material-symbols-outlined text-primary">{stream.icon}</span>
+                <div className="min-w-0">
+                  <p className="font-medium text-on-surface">{stream.title}</p>
+                  <p className="text-sm text-on-surface-variant">{stream.description}</p>
+                </div>
+                <span className="ml-auto text-xs uppercase tracking-widest text-on-surface-variant">
+                  On
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ── Preferences ─────────────────────────────────────────── */}
+        <section className={cardClass} aria-labelledby="settings-preferences">
+          <h2 id="settings-preferences" className={`${sectionTitleClass} mb-lg`}>
+            Preferences
+          </h2>
+          <div className="flex items-center justify-between gap-md p-md rounded-lg border border-outline-variant/20">
+            <div className="flex items-start gap-md min-w-0">
+              <span className="material-symbols-outlined text-primary">motion_photos_off</span>
+              <div>
+                <p className="font-medium text-on-surface">Reduce motion</p>
+                <p className="text-sm text-on-surface-variant">
+                  Minimize animations and transitions across the site. Your device&apos;s
+                  reduced-motion setting is always respected too.
+                </p>
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={reduceMotion}
+              onChange={setReduceMotion}
+              label="Reduce motion"
+            />
+          </div>
+        </section>
+
+        {/* ── Privacy ─────────────────────────────────────────────── */}
+        <section className={cardClass} aria-labelledby="settings-privacy">
+          <h2 id="settings-privacy" className={`${sectionTitleClass} mb-lg`}>
+            Privacy
+          </h2>
+          <Link
+            to="/privacy"
+            className="flex items-center gap-md p-md rounded-lg border border-outline-variant/20 hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-primary">policy</span>
+            <div className="min-w-0">
+              <p className="font-medium text-on-surface">Privacy Policy</p>
+              <p className="text-sm text-on-surface-variant">
+                Read how we collect, use, and protect your data.
+              </p>
+            </div>
+            <span className="material-symbols-outlined text-on-surface-variant ml-auto">
+              chevron_right
+            </span>
+          </Link>
         </section>
       </div>
     </AccountLayout>

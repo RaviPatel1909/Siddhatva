@@ -16,7 +16,7 @@ export const AccountOverviewPage: React.FC = () => {
   const wishlistPreview = wishlist.slice(0, 4);
   const firstName = user?.name.split(' ')[0] ?? 'there';
   const QUICK_LINKS = [
-    { label: 'Profile', description: 'Manage personal info', icon: 'person', href: '/account/profile' },
+    { label: 'Settings', description: 'Account, security & preferences', icon: 'settings', href: '/account/profile' },
     { label: 'Wishlist', description: `${wishlist.length} saved favorites`, icon: 'favorite', href: '/account/wishlist' },
   ];
 
