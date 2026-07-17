@@ -8,17 +8,28 @@ export interface AccessPayload {
   role: Role;
 }
 
+// Access tokens are HMAC-signed (symmetric). Pin the algorithm on BOTH sign and
+// verify: verifying with an explicit `algorithms` allowlist makes jsonwebtoken
+// reject any token whose header `alg` differs — closing algorithm-confusion /
+// `alg: none` attacks (a forged token claiming `none` or an asymmetric alg is
+// refused, never trusted). HS256 is jsonwebtoken's HMAC default; naming it here
+// is defense-in-depth, not a change to how tokens are minted.
+const ACCESS_TOKEN_ALG = 'HS256' as const;
+
 // Short-lived access token (JWT). Payload carries the role so requireAdmin can
 // gate without a DB hit; subject is the user id.
 export function signAccessToken(userId: string, role: Role): string {
   return jwt.sign({ role }, env.jwtAccessSecret, {
     subject: userId,
     expiresIn: env.accessTtlSeconds,
+    algorithm: ACCESS_TOKEN_ALG,
   });
 }
 
 export function verifyAccessToken(token: string): AccessPayload {
-  const decoded = jwt.verify(token, env.jwtAccessSecret) as jwt.JwtPayload;
+  const decoded = jwt.verify(token, env.jwtAccessSecret, {
+    algorithms: [ACCESS_TOKEN_ALG],
+  }) as jwt.JwtPayload;
   return { sub: String(decoded.sub), role: decoded.role as Role };
 }
 
