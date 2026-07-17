@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
-import { AnalyticsOverview } from '../contract';
+import { AnalyticsOverview, RevenuePoint } from '../contract';
+
+export type Granularity = 'day' | 'week' | 'month';
 
 // Analytics aggregation service. Business logic lives here (routes stay thin);
 // every time bucket + from/to boundary is resolved against IST (UTC+05:30) days,
@@ -83,4 +85,114 @@ export async function getOverview(range: {
     outOfStock,
     reviews,
   };
+}
+
+// --- Shared IST time-bucketing (reused by revenue + customer time-series) ---
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+// Start-of-bucket (as a UTC instant ms) for the IST day/week/month containing
+// `instant`. Weeks start Monday (IST). Date.UTC normalizes negative/overflow.
+function bucketStartMs(instant: Date, g: Granularity): number {
+  const { y, m0, d } = istParts(instant);
+  if (g === 'month') return istDayStartUtcMs(y, m0, 1);
+  if (g === 'week') {
+    const dow = new Date(instant.getTime() + IST_OFFSET_MIN * MS_PER_MIN).getUTCDay(); // 0=Sun..6=Sat
+    return istDayStartUtcMs(y, m0, d - ((dow + 6) % 7)); // back to Monday
+  }
+  return istDayStartUtcMs(y, m0, d);
+}
+
+// Bucket label: month → 'YYYY-MM', day/week → 'YYYY-MM-DD' (week = its Monday).
+function bucketKey(startMs: number, g: Granularity): string {
+  const { y, m0, d } = istParts(new Date(startMs));
+  return g === 'month' ? `${y}-${pad2(m0 + 1)}` : `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+}
+
+function nextBucketStartMs(startMs: number, g: Granularity): number {
+  if (g === 'day') return startMs + MS_PER_DAY;
+  if (g === 'week') return startMs + 7 * MS_PER_DAY;
+  const { y, m0 } = istParts(new Date(startMs));
+  return istDayStartUtcMs(y, m0 + 1, 1);
+}
+
+// Resolve the bounded [startMs, endMsExclusive) window for a time-series request.
+// Explicit from/to win; otherwise a trailing window ending today (IST) sized by
+// granularity: day → 30 days, week → ~12 weeks, month → 12 months.
+export function resolveSeriesWindow(
+  from: string | undefined,
+  to: string | undefined,
+  g: Granularity
+): { startMs: number; endMsExclusive: number } {
+  const nowP = istParts(new Date());
+  const toDay = to ? parseIstDay(to) : nowP;
+  const toStartMs = istDayStartUtcMs(toDay.y, toDay.m0, toDay.d);
+  const endMsExclusive = toStartMs + MS_PER_DAY;
+
+  let startMs: number;
+  if (from) {
+    const f = parseIstDay(from);
+    startMs = istDayStartUtcMs(f.y, f.m0, f.d);
+  } else if (g === 'day') {
+    startMs = toStartMs - 29 * MS_PER_DAY;
+  } else if (g === 'week') {
+    startMs = toStartMs - 83 * MS_PER_DAY; // ~12 weeks
+  } else {
+    startMs = istDayStartUtcMs(toDay.y, toDay.m0 - 11, 1); // 12 months
+  }
+  return { startMs, endMsExclusive };
+}
+
+// Ordered, zero-filled buckets spanning [startMs, endMsExclusive) plus a
+// key→index lookup — the shared skeleton every time-series fills.
+function emptyBuckets<T extends { date: string }>(
+  startMs: number,
+  endMsExclusive: number,
+  g: Granularity,
+  make: (date: string) => T
+): { series: T[]; indexByKey: Map<string, number> } {
+  const series: T[] = [];
+  const indexByKey = new Map<string, number>();
+  let cur = bucketStartMs(new Date(startMs), g);
+  while (cur < endMsExclusive) {
+    const key = bucketKey(cur, g);
+    indexByKey.set(key, series.length);
+    series.push(make(key));
+    cur = nextBucketStartMs(cur, g);
+  }
+  return { series, indexByKey };
+}
+
+// GET /admin/analytics/revenue — PAID revenue + paid-order count per bucket.
+// One query (createdAt-filtered, minimal columns) then in-memory bucketing —
+// mirrors the existing salesByMonth approach; no N+1.
+export async function getRevenueSeries(
+  range: { from?: string; to?: string },
+  granularity: Granularity | undefined
+): Promise<RevenuePoint[]> {
+  const g = granularity ?? 'month';
+  const { startMs, endMsExclusive } = resolveSeriesWindow(range.from, range.to, g);
+
+  const orders = await prisma.order.findMany({
+    where: {
+      paymentStatus: 'PAID',
+      createdAt: { gte: new Date(startMs), lt: new Date(endMsExclusive) },
+    },
+    select: { createdAt: true, total: true },
+  });
+
+  const { series, indexByKey } = emptyBuckets(startMs, endMsExclusive, g, (date) => ({
+    date,
+    revenue: 0,
+    orders: 0,
+  }));
+  for (const o of orders) {
+    const idx = indexByKey.get(bucketKey(bucketStartMs(o.createdAt, g), g));
+    if (idx !== undefined) {
+      series[idx].revenue += o.total;
+      series[idx].orders += 1;
+    }
+  }
+  for (const p of series) p.revenue = Math.round(p.revenue);
+  return series;
 }
