@@ -134,11 +134,18 @@ jobs:
       # Dependency audit — PRODUCTION deps only (what actually ships), failing on
       # high/critical advisories. `--omit=dev` keeps build-tool noise out of the
       # gate. Runs from the committed lockfile; no install needed.
+      #
+      # Wrapped by scripts/audit-allowlist.mjs because `npm audit` is all-or-nothing:
+      # it has no per-advisory ignore, so a single unreachable advisory would other-
+      # wise force us to either leave this gate red forever or weaken it for every-
+      # thing. The wrapper still FAILS on any high/critical finding; it only skips
+      # advisories with an explicit, justified, DATED entry in its allowlist, and it
+      # fails the build once such an entry passes its review date. Plain node, no
+      # extra dependency.
       - name: npm audit (frontend, prod deps)
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit-allowlist.mjs .
       - name: npm audit (server, prod deps)
-        run: npm audit --omit=dev --audit-level=high
-        working-directory: server
+        run: node scripts/audit-allowlist.mjs server
 
       # Secret scan of the working tree only (`--no-git`), so purged historical
       # placeholders can't cause noise; `.gitleaks.toml` allowlists known fixtures.
