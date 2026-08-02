@@ -110,9 +110,11 @@ Not optional. After a change, before considering it done:
 1. **Typecheck + build pass on BOTH `/server` and the frontend.**
 2. **Playwright at 375 and 1280** for any user-facing flow you touched.
 3. **Re-verify the full purchase flow at both widths each phase.**
-4. **Keep all 14 standing e2e specs green** (`e2e/` — auth-isolation, admin-access,
-   home-content, payments, shipping, password-reset). Run with the stack up + DB
-   seeded: `npm run test:e2e`.
+4. **Keep the full e2e suite green** — every spec in `e2e/`, not a subset. Run with the
+   stack up + DB seeded: `npm run test:e2e`. The suite grows every phase, so the count
+   is deliberately not repeated here; `npm run test:e2e` is the authority and
+   `Siddhatva - context/Siddhatva/07 - Testing.md` carries the enumerated list of specs
+   and what each guards.
 
 ## Test discipline
 
