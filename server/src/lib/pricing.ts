@@ -8,7 +8,7 @@
 
 // Shipping is complimentary above this subtotal (whole INR rupees); at or below
 // it (but non-zero) a flat rate applies. An empty cart ships free by definition.
-export const FREE_SHIPPING_THRESHOLD = 500;
+export const FREE_SHIPPING_THRESHOLD = 2500;
 export const FLAT_SHIPPING = 15;
 export const TAX_RATE = 0.08; // 8%
 

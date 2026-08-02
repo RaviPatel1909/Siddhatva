@@ -4,7 +4,7 @@
 // what is actually charged — this only keeps the displayed figures identical.
 // If a rule changes on the server, change it here too.
 
-export const FREE_SHIPPING_THRESHOLD = 500;
+export const FREE_SHIPPING_THRESHOLD = 2500;
 export const FLAT_SHIPPING = 15;
 export const TAX_RATE = 0.08; // 8%
 

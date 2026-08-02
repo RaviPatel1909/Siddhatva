@@ -314,7 +314,7 @@ when `colorId`/`size` are absent; it never sets a price.
 product, verifies it exists and is sellable (`status` not `draft`/`out-of-stock`),
 resolves the variant, and validates stock. It then computes:
 `lineTotal = dbUnitPrice × quantity`; `subtotal = Σ lineTotal`;
-`shipping = 0 when subtotal is 0 or > 500, else 15`; `tax = round(subtotal × 0.08)`;
+`shipping = 0 when subtotal is 0 or > 2500, else 15`; `tax = round(subtotal × 0.08)`;
 `discount = 0` (no coupons yet — reserved); `total = subtotal + shipping + tax − discount`.
 Duplicate lines (same product + variant) are merged before the stock check so
 quantity cannot be split to bypass it. The persisted item `price` is the unit

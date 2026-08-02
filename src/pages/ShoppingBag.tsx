@@ -10,12 +10,13 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { useCart } from '../context/CartContext';
 import { getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
+import { shippingFor } from '../lib/pricing';
 
 export const ShoppingBagPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, subtotal, itemCount } = useCart();
 
-  const shipping = subtotal > 500 || subtotal === 0 ? 0 : 15;
+  const shipping = shippingFor(subtotal);
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
 

@@ -14,7 +14,7 @@ const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 // Pricing mirror (server/src/lib/pricing.ts) — the test computes its OWN expected
 // figures independently, so a server that trusted the client would fail these.
-const shippingFor = (s: number) => (s === 0 || s > 500 ? 0 : 15);
+const shippingFor = (s: number) => (s === 0 || s > 2500 ? 0 : 15);
 const taxFor = (s: number) => Math.round(s * 0.08);
 const totalFor = (s: number) => s + shippingFor(s) + taxFor(s);
 
@@ -91,9 +91,9 @@ test.describe('checkout integrity — server is authoritative for money', () => 
     expect(body.items[0].price).toBe(TP_PRICE);
     expect(body.items[0].variant).toBe('Champagne / M');
     expect(body.subtotal).toBe(1000);
-    expect(body.shipping).toBe(0); // > 500 → complimentary
+    expect(body.shipping).toBe(15); // ≤ 2500 → flat shipping
     expect(body.tax).toBe(80); // round(1000 * 0.08)
-    expect(body.total).toBe(1080);
+    expect(body.total).toBe(1095);
   });
 
   test('quantity calculation: lineTotal = dbPrice × quantity', async () => {
@@ -136,9 +136,9 @@ test.describe('checkout integrity — server is authoritative for money', () => 
     // Server recomputed everything from the DB — the tampered values had no effect.
     expect(body.items[0].price).toBe(TP_PRICE);
     expect(body.subtotal).toBe(1000);
-    expect(body.shipping).toBe(0);
+    expect(body.shipping).toBe(15);
     expect(body.tax).toBe(80);
-    expect(body.total).toBe(1080);
+    expect(body.total).toBe(1095);
     // The client-chosen id/name are ignored too (server-generated id, DB name).
     expect(body.id).not.toBe('SID-EVIL');
     expect(body.items[0].name).toBe('Checkout Integrity Test Piece');
@@ -151,7 +151,7 @@ test.describe('checkout integrity — server is authoritative for money', () => 
       total: 2,
       shippingAddress: address,
     });
-    expect(body.total).toBe(totalFor(2000)); // 2160 — the real price, not 2
+    expect(body.total).toBe(totalFor(2000)); // 2175 — the real price, not 2
   });
 
   test('the pay-init amount comes from the stored server total, not the request', async () => {
@@ -162,9 +162,9 @@ test.describe('checkout integrity — server is authoritative for money', () => 
       total: 1, // attacker attempt
       shippingAddress: address,
     });
-    expect(order.total).toBe(2160);
+    expect(order.total).toBe(2175);
     const init = await (await rc.post(`${API}/orders/${order.id}/pay-init`, { headers: auth(customerToken) })).json();
-    expect(init.amount).toBe(Math.round(order.total * 100)); // 216000 paise, not 100
+    expect(init.amount).toBe(Math.round(order.total * 100)); // 217500 paise, not 100
   });
 
   // --- Stock, variant, and product validation ------------------------------
@@ -241,7 +241,7 @@ test.describe('checkout integrity — server is authoritative for money', () => 
   test('a new order uses the latest price; a completed order keeps what it was charged', async () => {
     // 1) Place + PAY an order at the original price.
     const { body: original } = await postOrder({ customerName: 'A', items: [tpLine(1)], shippingAddress: address });
-    expect(original.total).toBe(1080);
+    expect(original.total).toBe(1095);
     await rc.post(`${API}/orders/${original.id}/pay-init`, { headers: auth(customerToken) });
     const mock = await (await rc.post(`${API}/orders/${original.id}/pay-mock`, { headers: auth(customerToken) })).json();
     const paid = await (await rc.post(`${API}/orders/verify`, { headers: auth(customerToken), data: mock })).json();
@@ -253,12 +253,37 @@ test.describe('checkout integrity — server is authoritative for money', () => 
       // 3) A NEW order reflects the new price.
       const { body: fresh } = await postOrder({ customerName: 'A', items: [tpLine(1)], shippingAddress: address });
       expect(fresh.items[0].price).toBe(2000);
-      expect(fresh.total).toBe(totalFor(2000)); // 2160
+      expect(fresh.total).toBe(totalFor(2000)); // 2175
 
       // 4) The already-completed order is unchanged — historical integrity.
       const historical = await (await rc.get(`${API}/orders/${original.id}`, { headers: auth(customerToken) })).json();
       expect(historical.items[0].price).toBe(TP_PRICE); // still 1000
-      expect(historical.total).toBe(1080);
+      expect(historical.total).toBe(1095);
+    } finally {
+      await rc.patch(`${API}/admin/products/${tpId}`, { headers: auth(adminToken), data: { price: TP_PRICE } });
+    }
+  });
+
+  // --- Free-shipping threshold boundary ------------------------------------
+
+  // The waiver is a STRICT `subtotal > FREE_SHIPPING_THRESHOLD`, and the banner
+  // says "over ₹2,500" to match — so ₹2,500 exactly is still charged shipping.
+  // Both sides plus the exact boundary are asserted here, because an off-by-one
+  // (> flipped to >=) is invisible anywhere except at that single rupee.
+  test('free shipping applies strictly ABOVE ₹2,500 — boundary is charged', async () => {
+    const cases = [
+      { price: 2499, shipping: 15, label: 'below the threshold' },
+      { price: 2500, shipping: 15, label: 'exactly at the threshold (not "over")' },
+      { price: 2501, shipping: 0, label: 'above the threshold' },
+    ];
+    try {
+      for (const { price, shipping, label } of cases) {
+        await rc.patch(`${API}/admin/products/${tpId}`, { headers: auth(adminToken), data: { price } });
+        const { body } = await postOrder({ customerName: 'A', items: [tpLine(1)], shippingAddress: address });
+        expect(body.subtotal, label).toBe(price);
+        expect(body.shipping, label).toBe(shipping);
+        expect(body.total, label).toBe(price + shipping + Math.round(price * 0.08));
+      }
     } finally {
       await rc.patch(`${API}/admin/products/${tpId}`, { headers: auth(adminToken), data: { price: TP_PRICE } });
     }
