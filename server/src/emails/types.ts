@@ -35,3 +35,9 @@ export interface PasswordResetEmailData {
   resetUrl: string;
   expiresInMinutes: number;
 }
+
+export interface VerifyEmailData {
+  name: string;
+  verifyUrl: string;
+  expiresInMinutes: number;
+}

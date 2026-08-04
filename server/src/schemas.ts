@@ -95,6 +95,15 @@ export const resetPasswordBody = z.object({
   newPassword: z.string().min(8, 'At least 8 characters'),
 });
 
+// Email verification. Same shapes as the reset pair above — a bare token to
+// consume, and a bare email to (re)send to.
+export const verifyEmailBody = z.object({
+  token: z.string().min(1, 'Missing token'),
+});
+export const resendVerificationBody = z.object({
+  email: z.string().email('Enter a valid email'),
+});
+
 // --- Admin product CRUD ---
 const productBadge = z.enum(['new', 'limited', 'sold-out']);
 const productStatus = z.enum(['active', 'draft', 'out-of-stock']);

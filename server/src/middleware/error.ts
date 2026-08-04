@@ -21,7 +21,9 @@ export const errorHandler = (
     return;
   }
   if (err instanceof HttpError) {
-    res.status(err.status).json({ message: err.message });
+    // `code` is only present on errors the client must branch on; omitted
+    // otherwise so existing responses keep their exact `{ message }` shape.
+    res.status(err.status).json(err.code ? { message: err.message, code: err.code } : { message: err.message });
     return;
   }
   // eslint-disable-next-line no-console

@@ -50,6 +50,27 @@ const trustProxyHops = trustProxy
     : MEASURED_TRUST_PROXY_HOPS
   : 0;
 
+// ============================================================================
+// EMAIL VERIFICATION ENFORCEMENT — off unless explicitly switched on.
+//
+// When OFF (the default, and the state this ships in): verification emails are
+// still sent and /auth/verify-email still works, but an unverified user can log
+// in exactly as before. Deploying this feature therefore changes NO login
+// behaviour — the flow can be exercised in production before it gates anyone.
+//
+// When ON: unverified users are refused at login. That is only safe once mail is
+// confirmed to be ARRIVING — the vault records Resend currently landing in spam
+// on a warming domain, and enforcing before that is fixed would lock out real
+// customers with no way through. Flip this only after sending yourself a real
+// verification mail and finding it.
+//
+// Admins are grandfathered as verified by the email_verification migration, so
+// this flag cannot cost anyone the admin panel.
+// ============================================================================
+const requireEmailVerification =
+  process.env.REQUIRE_EMAIL_VERIFICATION === 'true' ||
+  process.env.REQUIRE_EMAIL_VERIFICATION === '1';
+
 // The obvious dev-only JWT signing secret. Fine for localhost; a production boot
 // with this value (or none) is refused by assertProductionSecrets() below, because
 // it's public in the repo and access tokens carry the admin role.
@@ -67,6 +88,10 @@ export const env = {
   // `trust proxy`. See TRUST_PROXY_HOPS above — this number is MEASURED, and
   // getting it wrong breaks rate limiting in one direction or the other.
   trustProxyHops,
+  // Whether an unverified email address blocks login. Default OFF — see the
+  // block above; this is the rollout safety valve, not a feature toggle to
+  // leave on by accident.
+  requireEmailVerification,
   // Public origin of this API, used to build local dev image URLs.
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}`,
   // Public origin of the storefront (frontend), used to build links in emails.

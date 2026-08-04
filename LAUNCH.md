@@ -91,6 +91,7 @@ keep their `?sslmode=require` suffix. This becomes `DATABASE_URL`.
   | `PUBLIC_URL` | your backend URL, e.g. `https://api.siddhatva.com` |
   | `TRUST_PROXY` | `true` (behind the host's proxy) |
   | `TRUST_PROXY_HOPS` | proxy hops in front of the server — **measure it**, see below. `3` for the current Cloudflare → Render setup |
+  | `REQUIRE_EMAIL_VERIFICATION` | **leave unset** until verification mail is confirmed arriving — see below |
   | `JWT_ACCESS_SECRET` | a strong random string — `openssl rand -hex 32` |
   | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` | from Cloudinary |
   | `RAZORPAY_KEY_ID` / `_KEY_SECRET` / `_WEBHOOK_SECRET` | from Razorpay |
@@ -100,6 +101,32 @@ keep their `?sslmode=require` suffix. This becomes `DATABASE_URL`.
   Any integration whose vars you leave unset stays in its **dev fallback** (mock
   payments/shipping, dev email, local image store) — safe, but not real. Turn them on
   when ready.
+
+#### Enabling `REQUIRE_EMAIL_VERIFICATION` (do the deliverability check FIRST)
+
+Unverified accounts cannot sign in once this is on. That is only safe when
+confirmation mail actually reaches inboxes, so the flag ships **off** and the
+whole flow is deployable — and testable in production — before it gates anyone.
+
+Order of operations:
+
+1. Deploy, and run `npm run migrate:deploy`. The `email_verification` migration
+   adds `emailVerifiedAt` (NULL for everyone) **and grandfathers every
+   `role = 'ADMIN'` row as verified**, so admins can never be locked out.
+2. With the flag still **off**, register a throwaway account against production
+   and confirm the verification email **arrives in the inbox, not spam**. Open
+   the link and confirm `/verify-email` reports success. Nothing is gated yet, so
+   a failure here costs nothing.
+3. Only then set `REQUIRE_EMAIL_VERIFICATION=true` on the host and restart.
+4. Re-check immediately: an existing **admin** can still sign in, and a fresh
+   unverified registration is refused with the confirm-your-email screen.
+
+To roll back, unset the variable and restart — no migration or data change is
+involved, and any `emailVerifiedAt` values already stamped stay valid.
+
+**Existing non-admin users are unverified** and will be asked to confirm on their
+next sign-in. That is the intended retroactive policy, and it is precisely why
+step 2 is not optional.
 
 #### Measuring `TRUST_PROXY_HOPS` (do this whenever the infra in front changes)
 

@@ -13,6 +13,8 @@ export type SecurityEvent =
   | 'auth.login_failed' // bad credentials at POST /auth/login
   | 'auth.admin_login' // a successful login by an ADMIN account
   | 'auth.password_reset' // a password was changed via the reset flow
+  | 'auth.login_blocked_unverified' // correct credentials, but the email is unconfirmed
+  | 'auth.email_verified' // an email address was confirmed via the verification flow
   | 'auth.refresh_failed' // a refresh attempt was rejected (missing/invalid/expired)
   | 'auth.refresh_reuse_detected' // a revoked refresh token was replayed → family revoked
   | 'admin.operation' // an admin-only mutating request (POST/PATCH/DELETE)

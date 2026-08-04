@@ -49,8 +49,10 @@ access token is missing/invalid; `requireAdmin` → 403 when the role is not `AD
 
 | Endpoint | Body | Success | Notes |
 |----------|------|---------|-------|
-| `POST /auth/register` | `{ email, name, password }` (password ≥ 8) | `201 { user: PublicUser, accessToken }` + refresh cookie | `409` if email taken |
-| `POST /auth/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401` on bad credentials |
+| `POST /auth/register` | `{ email, name, password }` (password ≥ 8) | `201 { user: PublicUser, accessToken, verificationRequired: false }` + refresh cookie | `409` if email taken. Always emails a confirmation link. **When email verification is enforced** the response is `201 { user, verificationRequired: true }` with **no `accessToken` and no refresh cookie** — signup must not grant the session login would refuse. |
+| `POST /auth/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401` on bad credentials. **When email verification is enforced**, a correct-credentials login to an unconfirmed address returns `403 { message, code: "EMAIL_NOT_VERIFIED" }`. Checked **after** the password so it is not an account-existence oracle. |
+| `POST /auth/verify-email` | `{ token }` | `200 { ok: true }` | validates the token (exists / not used / not expired — else `400`), stamps `emailVerifiedAt`, marks the token **used (single-use)**. Rate-limited. |
+| `POST /auth/resend-verification` | `{ email }` | `200 { ok: true, message }` | **always identical** whether or not the account exists **and** whether or not it is already confirmed (no account enumeration); rate-limited. Requires **no session** — an unconfirmed user cannot log in, so gating this behind auth would be a dead end. Issuing a new link **invalidates any outstanding one**. |
 | `POST /auth/refresh` | — (refresh cookie) | `200 { user, accessToken }` + rotated cookie | `401` if missing/expired/reused; reuse revokes the whole token family |
 | `POST /auth/logout` | — (refresh cookie) | `200 { ok: true }`, clears cookie | revokes the presented refresh token |
 | `POST /auth/forgot-password` | `{ email }` | `200 { ok: true, message }` | **always identical** whether or not the email exists (no account enumeration); rate-limited. If it exists, emails a reset link (`/reset-password?token=…`, token valid 1h) via the EmailService (dev → `server/.mail/`). |
@@ -62,6 +64,19 @@ Validation errors return `400 { message: "Validation failed", issues: [...] }`.
 Password reset stores only the **sha256 hash** of the token (never the raw token).
 Dev-only hook `POST /auth/reset-token-dev { email } → { token }` returns the last
 raw token for testing (404 in production) — mock-only, not part of the contract.
+
+**Email verification.** Tokens are stored the same way as reset tokens — sha256
+**hash** only, single-use, expiring (24h; longer than a reset because a
+confirmation mail may sit unread, whereas a reset is immediate). Dev-only hook
+`POST /auth/verification-token-dev { email } → { token }` mirrors the reset hook
+(404 in production).
+
+Enforcement is gated by the server-side **`REQUIRE_EMAIL_VERIFICATION`** env flag,
+**default off**. With it off, verification emails are still sent and
+`/auth/verify-email` still works, but `emailVerifiedAt` gates nothing — login and
+register behave exactly as documented in the unflagged columns above. Only the two
+"when enforced" clauses change when it is on. Admins are grandfathered verified by
+the `email_verification` migration and are never blocked.
 
 **Which routes require auth:**
 

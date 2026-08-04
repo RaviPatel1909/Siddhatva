@@ -3,7 +3,8 @@ import { render } from '@react-email/render';
 import { OrderConfirmationEmail } from './OrderConfirmationEmail';
 import { ShippingNotificationEmail } from './ShippingNotificationEmail';
 import { PasswordResetEmail } from './PasswordResetEmail';
-import { OrderEmailData, PasswordResetEmailData } from './types';
+import { VerifyEmailEmail } from './VerifyEmailEmail';
+import { OrderEmailData, PasswordResetEmailData, VerifyEmailData } from './types';
 
 // A rendered email, ready to hand to any EmailService adapter.
 export interface RenderedEmail {
@@ -38,5 +39,12 @@ export function renderPasswordReset(data: PasswordResetEmailData): Promise<Rende
   return renderBoth(
     React.createElement(PasswordResetEmail, { data }),
     'Reset your Siddhatva password'
+  );
+}
+
+export function renderVerifyEmail(data: VerifyEmailData): Promise<RenderedEmail> {
+  return renderBoth(
+    React.createElement(VerifyEmailEmail, { data }),
+    'Confirm your Siddhatva email address'
   );
 }
