@@ -12,17 +12,43 @@ interface Bucket {
   resetAt: number;
 }
 
-// The real client IP. Behind a trusted proxy/CDN, req.ip / req.socket are the
-// proxy's address (so limits would be global, not per-user) — so read the
-// original client from X-Forwarded-For (leftmost entry = the client Vercel/
-// Railway saw). Only trusted when env.trustProxy is set; otherwise the header is
-// spoofable, so we fall back to req.ip.
+// Private / loopback / link-local ranges. Addresses a platform adds for its own
+// internal hops — never a real client.
+const PRIVATE_IP =
+  /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)/i;
+
+// The real client IP, used as the rate-limit key.
+//
+// SECURITY: this deliberately reads the RIGHTMOST public entry of
+// X-Forwarded-For, not the leftmost. A proxy APPENDS the address it saw to
+// whatever the client sent, so the header arrives as:
+//
+//     <anything the client made up> , <real client IP> [, <internal hops>]
+//
+// The leftmost entry is therefore fully attacker-controlled. Reading it (as this
+// did) let a caller mint a fresh rate-limit bucket per request just by varying
+// the header — verified against production: with the real IP's bucket exhausted
+// and returning 429, a unique spoofed X-Forwarded-For returned 200-path
+// responses every time. That bypass applied to EVERY limiter here (login,
+// register, checkout, password reset, and the global /api backstop), and is the
+// gap behind the flood of scripted signups.
+//
+// Walking from the right and skipping private addresses is robust without
+// needing to know how many hops the platform adds (a fixed hop count guessed
+// wrong collapses every visitor into one bucket and rate-limits the whole site).
+// An attacker can only PREPEND, so nothing they inject can appear to the right
+// of the address the trusted proxy appended.
 function clientIp(req: Request): string {
   if (env.trustProxy) {
     const xff = req.headers['x-forwarded-for'];
-    const raw = Array.isArray(xff) ? xff[0] : xff;
-    const first = raw?.split(',')[0]?.trim();
-    if (first) return first;
+    const raw = Array.isArray(xff) ? xff.join(',') : xff;
+    const chain = (raw ?? '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    for (let i = chain.length - 1; i >= 0; i -= 1) {
+      if (!PRIVATE_IP.test(chain[i])) return chain[i];
+    }
   }
   return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
@@ -41,7 +67,15 @@ export function rateLimit(opts: { windowMs: number; max: number; name?: string }
       return;
     }
     if (bucket.count >= opts.max) {
-      securityEvent('security.rate_limited', { limiter: opts.name ?? 'rl', ip: clientIp(req) });
+      // `forwarded` records the chain the resolved ip was picked from, so the
+      // platform's actual hop shape is readable straight from the logs (and any
+      // spoof attempt is visible as extra leading entries).
+      const xff = req.headers['x-forwarded-for'];
+      securityEvent('security.rate_limited', {
+        limiter: opts.name ?? 'rl',
+        ip: clientIp(req),
+        forwarded: (Array.isArray(xff) ? xff.join(',') : xff) ?? null,
+      });
       next(new HttpError(429, 'Too many requests — please try again later'));
       return;
     }
