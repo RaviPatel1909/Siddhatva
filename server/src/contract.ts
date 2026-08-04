@@ -47,14 +47,29 @@ export interface ProductListParams {
   pageSize?: number;
 }
 
+// Navigation facet — always counted over the whole catalog so no category can
+// vanish behind a refinement (see docs/API_CONTRACT.md).
 export interface CategoryFacet {
   name: string;
   count: number;
 }
+
+// Refinement facets — counted over the products matching every active filter
+// EXCEPT this facet's own, so options reflect the current context without the
+// selected value removing its own alternatives.
 export interface ColorFacet {
   id: string;
   name: string;
   hex: string;
+  count: number;
+}
+export interface SizeFacet {
+  value: string;
+  count: number;
+}
+export interface PriceFacet {
+  min: number;
+  max: number;
 }
 
 export interface ProductListResponse {
@@ -65,6 +80,8 @@ export interface ProductListResponse {
   facets: {
     categories: CategoryFacet[];
     colors: ColorFacet[];
+    sizes: SizeFacet[];
+    price: PriceFacet;
   };
 }
 

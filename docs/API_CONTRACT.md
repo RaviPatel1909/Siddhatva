@@ -174,22 +174,43 @@ List catalog products with filtering, sorting, pagination, and facets.
 | `category` | string | (none)     | Exact match on `product.category`. e.g. `Men` → the 5 Men products. |
 | `color`    | string | (none)     | Match if **any** of `product.colors` has `id === color`. |
 | `size`     | string | (none)     | Match if `product.sizes` **includes** the exact value. |
+| `minPrice` | number | (none)     | **Inclusive** lower bound: match if `product.price >= minPrice`. Whole-rupee integer (catalog prices are integers). |
+| `maxPrice` | number | (none)     | **Inclusive** upper bound: match if `product.price <= maxPrice`. Whole-rupee integer. **Absent = no upper bound** — this is how the UI expresses an open-ended "₹X and above" top end. |
 | `sort`     | enum   | `featured` | `price-asc` (ascending price), `price-desc` (descending price). `featured` or any other value / absent → catalog insertion order (stable). |
 | `page`     | number | `1`        | 1-based page index; values `< 1` are clamped to `1`. |
 | `pageSize` | number | `8`        | Items per page; values `< 1` are clamped to `1`. |
 
-**Filtering:** `q` and the three filters all combine with **AND** (e.g. `q=blazer&category=Men` → products whose name/category matches "blazer" *and* are in `Men`). Unknown params are ignored.
+**Filtering:** `q` and all five filters combine with **AND** (e.g. `q=blazer&category=Men&size=M&minPrice=2000` → products whose name/category matches "blazer" *and* are in `Men` *and* offer size `M` *and* cost ≥ ₹2,000). Unknown params are ignored.
+
+**Price bounds are integers and inclusive.** `minPrice=1000&maxPrice=3000` matches
+a ₹1,000 product and a ₹3,000 product. Non-integer or negative values are rejected
+(`400`) rather than coerced — consistent with the analytics endpoints. `minPrice`
+greater than `maxPrice` is a valid request that simply matches nothing (it is not an
+error); the UI prevents it by construction.
 
 **Pagination:** applied **after** filter + sort. `total` is the filtered count
 (before slicing). `items = filtered[(page-1)*pageSize : page*pageSize]`.
 
-**Facets:** computed over the **entire catalog**, independent of the active
-filters (so the UI can show full category counts and every available colour even
-while filtered).
-- `facets.categories`: each distinct `category` (in first-seen order) with
-  `count` = number of products in that category across the whole catalog.
-- `facets.colors`: each distinct colour by `id` across the whole catalog (in
-  first-seen order), as `{ id, name, hex }`.
+**Facets:** split by role — **navigation** (categories) is catalog-wide, while the
+three **refinements** (colors, sizes, price) are *context-aware*.
+
+- `facets.categories` — **whole catalog**, independent of every active filter (in
+  first-seen order), with `count` = number of products in that category across the
+  whole catalog. Categories are primary navigation: they must not disappear because
+  a refinement emptied them, and the UI's "All (n)" total is derived from these counts.
+- `facets.colors` / `facets.sizes` / `facets.price` — computed over the products
+  matching **every active filter except that facet's own**. So the colour list on
+  `/shop/Men` shows only the colours Men products actually come in, and picking a
+  colour never removes the *other* colours (which would trap the shopper with no way
+  to switch). Each carries a `count` of matching products, so the UI can label
+  options and suppress dead ones. `facets.price` is the `{ min, max }` of matching
+  products' prices — the real bounds for a range control; both `0` when nothing
+  matches.
+
+> Refinement facets are context-aware **by design**: rendering the whole catalog's
+> colours/sizes on a filtered view offers options that return zero products. A client
+> must not hardcode a colour or size list — the catalog is the only source of truth
+> (see `facets.sizes`, added precisely so the size control can stop guessing).
 
 **Response `200`** — `ProductListResponse`:
 
@@ -200,8 +221,10 @@ interface ProductListResponse {
   page: number;       // echoed (clamped) page
   pageSize: number;   // echoed (clamped) pageSize
   facets: {
-    categories: { name: string; count: number }[];
-    colors: { id: string; name: string; hex: string }[];
+    categories: { name: string; count: number }[];              // whole catalog
+    colors: { id: string; name: string; hex: string; count: number }[]; // context-aware
+    sizes: { value: string; count: number }[];                   // context-aware
+    price: { min: number; max: number };                         // context-aware
   };
 }
 ```
@@ -215,12 +238,16 @@ interface ProductListResponse {
   "page": 1,
   "pageSize": 3,
   "facets": {
+    // Navigation: always the whole catalog, so every category stays reachable.
     "categories": [
       { "name": "Women", "count": 4 },
       { "name": "Accessories", "count": 5 },
       { "name": "Men", "count": 5 }
     ],
-    "colors": [ { "id": "bronze", "name": "Warm Bronze", "hex": "#b87b5a" } /* … */ ]
+    // Refinements: only what the Men products actually offer.
+    "colors": [ { "id": "bronze", "name": "Warm Bronze", "hex": "#b87b5a", "count": 3 } /* … */ ],
+    "sizes":  [ { "value": "M", "count": 4 }, { "value": "L", "count": 5 } /* … */ ],
+    "price":  { "min": 1899, "max": 8990 }
   }
 }
 ```

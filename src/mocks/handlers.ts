@@ -101,7 +101,7 @@ const customerAggregates = (name: string) => {
 };
 
 export const handlers = [
-  // GET /products — filter (category/color/size), sort, paginate, and facets.
+  // GET /products — filter (q/category/color/size/price), sort, paginate, facets.
   http.get(`${API}/products`, async ({ request }) => {
     if (shouldFail('products')) return fail();
     await mockDelay();
@@ -114,37 +114,81 @@ export const handlers = [
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
     const pageSize = Math.max(1, Number(url.searchParams.get('pageSize') ?? 8));
 
-    let list = products.filter((p) => {
-      // q: case-insensitive substring on name OR category (parity with admin search).
-      const matchesQuery =
-        !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
-      const matchesCategory = !category || p.category === category;
-      const matchesColor = !color || p.colors.some((c) => c.id === color);
-      const matchesSize = !size || p.sizes.includes(size);
-      return matchesQuery && matchesCategory && matchesColor && matchesSize;
-    });
+    // Price bounds are whole-rupee integers and are rejected rather than coerced,
+    // mirroring the server's Zod schema (docs/API_CONTRACT.md).
+    const readPrice = (key: string): number | null | 'invalid' => {
+      const raw = url.searchParams.get(key);
+      if (raw === null || raw === '') return null;
+      const n = Number(raw);
+      return Number.isInteger(n) && n >= 0 ? n : 'invalid';
+    };
+    const minPrice = readPrice('minPrice');
+    const maxPrice = readPrice('maxPrice');
+    if (minPrice === 'invalid' || maxPrice === 'invalid') {
+      return HttpResponse.json({ message: 'Invalid price range' }, { status: 400 });
+    }
+
+    // One predicate per filter, so a facet can re-run the set MINUS its own.
+    // q: case-insensitive substring on name OR category (parity with admin search).
+    const okQ = (p: (typeof products)[number]) =>
+      !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+    const okCategory = (p: (typeof products)[number]) => !category || p.category === category;
+    const okColor = (p: (typeof products)[number]) =>
+      !color || p.colors.some((c) => c.id === color);
+    const okSize = (p: (typeof products)[number]) => !size || p.sizes.includes(size);
+    const okPrice = (p: (typeof products)[number]) =>
+      (minPrice === null || p.price >= minPrice) && (maxPrice === null || p.price <= maxPrice);
+
+    let list = products.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okSize(p) && okPrice(p));
     if (sort === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
     if (sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
 
     const total = list.length;
     const items = list.slice((page - 1) * pageSize, page * pageSize).map(toApiProduct);
 
-    // Facets computed over the whole catalog (category-independent), so the
-    // sidebar shows total counts and every available colour.
+    // Categories = navigation → whole catalog, so none can vanish behind a
+    // refinement and the UI's "All (n)" stays the true catalog total.
     const categoryNames = Array.from(new Set(products.map((p) => p.category)));
     const categories = categoryNames.map((name) => ({
       name,
       count: products.filter((p) => p.category === name).length,
     }));
-    const colorMap = new Map<string, { id: string; name: string; hex: string }>();
-    products.forEach((p) => p.colors.forEach((c) => colorMap.set(c.id, c)));
+
+    // Refinements = context-aware, each computed over every OTHER active filter,
+    // so options reflect the current view without a selection hiding its own
+    // alternatives (which would trap the shopper).
+    const forColors = products.filter((p) => okQ(p) && okCategory(p) && okSize(p) && okPrice(p));
+    const forSizes = products.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okPrice(p));
+    const forPrice = products.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okSize(p));
+
+    const colorMap = new Map<string, { id: string; name: string; hex: string; count: number }>();
+    for (const p of forColors) {
+      for (const c of p.colors) {
+        const hit = colorMap.get(c.id);
+        if (hit) hit.count += 1;
+        else colorMap.set(c.id, { id: c.id, name: c.name, hex: c.hex, count: 1 });
+      }
+    }
+    const sizeMap = new Map<string, number>();
+    for (const p of forSizes) {
+      for (const s of p.sizes) sizeMap.set(s, (sizeMap.get(s) ?? 0) + 1);
+    }
+    const prices = forPrice.map((p) => p.price);
 
     const body: ProductListResponse = {
       items,
       total,
       page,
       pageSize,
-      facets: { categories, colors: Array.from(colorMap.values()) },
+      facets: {
+        categories,
+        colors: Array.from(colorMap.values()),
+        sizes: Array.from(sizeMap.entries()).map(([value, count]) => ({ value, count })),
+        price: {
+          min: prices.length ? Math.min(...prices) : 0,
+          max: prices.length ? Math.max(...prices) : 0,
+        },
+      },
     };
     return HttpResponse.json(body);
   }),

@@ -2,12 +2,12 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { asyncHandler, HttpError } from '../lib/http';
 import { productListQuery } from '../schemas';
-import { computeFacets, productInclude, toApiProduct } from '../lib/mappers';
+import { computeFacets, productInclude, toApiProduct, ProductWithRelations } from '../lib/mappers';
 import { ProductListResponse } from '../contract';
 
 export const productsRouter = Router();
 
-// GET /products — filter (category/color/size) + sort + paginate + facets.
+// GET /products — filter (q/category/color/size/price) + sort + paginate + facets.
 productsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -22,16 +22,24 @@ productsRouter.get(
       orderBy: { position: 'asc' },
     });
 
+    // One predicate per filter, so each refinement facet can re-run the set
+    // MINUS its own (see computeFacets / docs/API_CONTRACT.md).
     // q: case-insensitive substring on name OR category (parity with admin search).
     const needle = q.q?.trim().toLowerCase();
-    let list = all.filter((p) => {
-      const matchesQuery =
-        !needle || p.name.toLowerCase().includes(needle) || p.category.name.toLowerCase().includes(needle);
-      const matchesCategory = !q.category || p.category.name === q.category;
-      const matchesColor = !q.color || p.variants.some((v) => v.colorId === q.color);
-      const matchesSize = !q.size || p.variants.some((v) => v.size === q.size);
-      return matchesQuery && matchesCategory && matchesColor && matchesSize;
-    });
+    const okQ = (p: ProductWithRelations) =>
+      !needle ||
+      p.name.toLowerCase().includes(needle) ||
+      p.category.name.toLowerCase().includes(needle);
+    const okCategory = (p: ProductWithRelations) => !q.category || p.category.name === q.category;
+    const okColor = (p: ProductWithRelations) =>
+      !q.color || p.variants.some((v) => v.colorId === q.color);
+    const okSize = (p: ProductWithRelations) => !q.size || p.variants.some((v) => v.size === q.size);
+    // Inclusive bounds; an absent maxPrice means no upper bound.
+    const okPrice = (p: ProductWithRelations) =>
+      (q.minPrice === undefined || p.price >= q.minPrice) &&
+      (q.maxPrice === undefined || p.price <= q.maxPrice);
+
+    let list = all.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okSize(p) && okPrice(p));
     if (q.sort === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
     if (q.sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
 
@@ -43,7 +51,11 @@ productsRouter.get(
       total,
       page,
       pageSize,
-      facets: computeFacets(all),
+      facets: computeFacets(all, {
+        forColors: all.filter((p) => okQ(p) && okCategory(p) && okSize(p) && okPrice(p)),
+        forSizes: all.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okPrice(p)),
+        forPrice: all.filter((p) => okQ(p) && okCategory(p) && okColor(p) && okSize(p)),
+      }),
     };
     res.json(body);
   })

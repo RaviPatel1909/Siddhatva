@@ -5,6 +5,12 @@ export const productListQuery = z.object({
   category: z.string().optional(),
   color: z.string().optional(),
   size: z.string().optional(),
+  // Inclusive whole-rupee price bounds. Catalog prices are integers, so a
+  // fractional or negative bound is rejected (400) rather than coerced —
+  // same discipline as the analytics range params. An absent maxPrice means
+  // "no upper bound" (docs/API_CONTRACT.md).
+  minPrice: z.coerce.number().int().min(0).optional(),
+  maxPrice: z.coerce.number().int().min(0).optional(),
   sort: z.enum(['featured', 'price-asc', 'price-desc']).optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).optional(),

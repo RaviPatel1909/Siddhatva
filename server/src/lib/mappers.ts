@@ -9,9 +9,11 @@ import {
   ColorFacet,
   OrderStatus,
   PaymentStatus,
+  PriceFacet,
   ProductBadge,
   ProductStatus,
   ShippingStatus,
+  SizeFacet,
 } from '../contract';
 import { imageStore } from './imageStore';
 
@@ -196,10 +198,29 @@ export function toAdminCustomerListItem(
   };
 }
 
-// Facets computed over the whole catalog (filter-independent), first-seen order.
-export function computeFacets(all: ProductWithRelations[]): {
+// Facets, in first-seen order. Two different scopes on purpose
+// (docs/API_CONTRACT.md):
+//
+//   categories — NAVIGATION: always the whole catalog (`all`), so no category can
+//     disappear because a refinement emptied it, and the storefront's "All (n)"
+//     stays the true catalog total.
+//   colors/sizes/price — REFINEMENTS: the caller passes, per facet, the products
+//     matching every active filter EXCEPT that facet's own. That is what makes the
+//     colour list on /shop/Men show only the colours Men actually comes in, while
+//     picking a colour still leaves the other colours selectable rather than
+//     stranding the shopper with a single option and no way back.
+export function computeFacets(
+  all: ProductWithRelations[],
+  context: {
+    forColors: ProductWithRelations[];
+    forSizes: ProductWithRelations[];
+    forPrice: ProductWithRelations[];
+  }
+): {
   categories: CategoryFacet[];
   colors: ColorFacet[];
+  sizes: SizeFacet[];
+  price: PriceFacet;
 } {
   const catCounts = new Map<string, number>();
   for (const p of all) catCounts.set(p.category.name, (catCounts.get(p.category.name) ?? 0) + 1);
@@ -208,13 +229,45 @@ export function computeFacets(all: ProductWithRelations[]): {
     count,
   }));
 
+  // Count products (not variants) per colour — a product offering a colour in
+  // four sizes is one match, so the count means "pieces you'd see".
   const colorMap = new Map<string, ColorFacet>();
-  for (const p of all) {
+  for (const p of context.forColors) {
+    const seen = new Set<string>();
     for (const v of p.variants) {
-      if (!colorMap.has(v.color.id)) {
-        colorMap.set(v.color.id, { id: v.color.id, name: v.color.name, hex: v.color.hex });
-      }
+      if (seen.has(v.color.id)) continue;
+      seen.add(v.color.id);
+      const hit = colorMap.get(v.color.id);
+      if (hit) hit.count += 1;
+      else
+        colorMap.set(v.color.id, {
+          id: v.color.id,
+          name: v.color.name,
+          hex: v.color.hex,
+          count: 1,
+        });
     }
   }
-  return { categories, colors: Array.from(colorMap.values()) };
+
+  const sizeCounts = new Map<string, number>();
+  for (const p of context.forSizes) {
+    const seen = new Set<string>();
+    for (const v of p.variants) {
+      if (seen.has(v.size)) continue;
+      seen.add(v.size);
+      sizeCounts.set(v.size, (sizeCounts.get(v.size) ?? 0) + 1);
+    }
+  }
+
+  const prices = context.forPrice.map((p) => p.price);
+
+  return {
+    categories,
+    colors: Array.from(colorMap.values()),
+    sizes: Array.from(sizeCounts.entries()).map(([value, count]) => ({ value, count })),
+    price: {
+      min: prices.length ? Math.min(...prices) : 0,
+      max: prices.length ? Math.max(...prices) : 0,
+    },
+  };
 }
