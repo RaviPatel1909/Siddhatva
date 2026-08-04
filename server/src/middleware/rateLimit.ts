@@ -12,43 +12,40 @@ interface Bucket {
   resetAt: number;
 }
 
-// Private / loopback / link-local ranges. Addresses a platform adds for its own
-// internal hops — never a real client.
-const PRIVATE_IP =
-  /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)/i;
-
-// The real client IP, used as the rate-limit key.
+// The client IP used as the rate-limit key: the leftmost X-Forwarded-For entry
+// when behind a trusted proxy, else req.ip.
 //
-// SECURITY: this deliberately reads the RIGHTMOST public entry of
-// X-Forwarded-For, not the leftmost. A proxy APPENDS the address it saw to
-// whatever the client sent, so the header arrives as:
+// ⚠️ KNOWN WEAKNESS — the leftmost entry is client-controllable.
 //
-//     <anything the client made up> , <real client IP> [, <internal hops>]
+// A proxy APPENDS the address it saw to whatever the client already sent, so the
+// header arrives as `<anything the client made up>, <appended by the proxy…>`.
+// Reading the leftmost entry therefore lets a caller mint a fresh bucket per
+// request by varying the header. Verified against production: with the real IP's
+// bucket exhausted and returning 429, a unique spoofed X-Forwarded-For returned a
+// fresh 400 every time. This affects EVERY limiter here, and is the likely gap
+// behind the flood of scripted signups.
 //
-// The leftmost entry is therefore fully attacker-controlled. Reading it (as this
-// did) let a caller mint a fresh rate-limit bucket per request just by varying
-// the header — verified against production: with the real IP's bucket exhausted
-// and returning 429, a unique spoofed X-Forwarded-For returned 200-path
-// responses every time. That bypass applied to EVERY limiter here (login,
-// register, checkout, password reset, and the global /api backstop), and is the
-// gap behind the flood of scripted signups.
+// It is nevertheless kept for now, because the obvious fix is worse if guessed.
+// Taking the rightmost public entry instead was tried and REVERTED: against the
+// real Render deployment it resolved to something appended AFTER the client
+// address that is not stable per client, so the limiter stopped limiting anyone
+// at all — strictly worse than a bypass that requires deliberate spoofing.
 //
-// Walking from the right and skipping private addresses is robust without
-// needing to know how many hops the platform adds (a fixed hop count guessed
-// wrong collapses every visitor into one bucket and rate-limits the whole site).
-// An attacker can only PREPEND, so nothing they inject can appear to the right
-// of the address the trusted proxy appended.
+// To fix this correctly, the platform's actual forwarded chain has to be known
+// rather than assumed. `security.rate_limited` now logs the raw `forwarded`
+// chain for exactly that purpose: read one such line from the deployment's logs,
+// count the hops, then set Express `trust proxy` to that hop count and key this
+// on `req.ip` (which resolves the chain properly once the count is right).
+// Guessing the count too high collapses every visitor into a single bucket and
+// rate-limits the whole site, so it must be measured, not inferred.
+//
+// Tracked in the vault's Known Gaps note.
 function clientIp(req: Request): string {
   if (env.trustProxy) {
     const xff = req.headers['x-forwarded-for'];
-    const raw = Array.isArray(xff) ? xff.join(',') : xff;
-    const chain = (raw ?? '')
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    for (let i = chain.length - 1; i >= 0; i -= 1) {
-      if (!PRIVATE_IP.test(chain[i])) return chain[i];
-    }
+    const raw = Array.isArray(xff) ? xff[0] : xff;
+    const first = raw?.split(',')[0]?.trim();
+    if (first) return first;
   }
   return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
