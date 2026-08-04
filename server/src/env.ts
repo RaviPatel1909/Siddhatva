@@ -12,6 +12,44 @@ const corsOrigins = (process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? 'htt
   .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
+// ============================================================================
+// PROXY HOP COUNT — measured against the real deployment, never guessed.
+//
+// TRUST_PROXY turns proxy awareness on; TRUST_PROXY_HOPS says how many hops to
+// trust. They are separate vars deliberately: TRUST_PROXY=1 has always meant
+// "true", so overloading it with a count would silently mean "1 hop" on the
+// existing production config.
+//
+// The count is what Express `trust proxy` takes, and it counts the SOCKET as a
+// hop as well as each X-Forwarded-For entry the infrastructure appended. The
+// production chain, read from a real `security.rate_limited` log line, is:
+//
+//     X-Forwarded-For: <client>, <Cloudflare edge>, <Render internal>
+//     socket:          <Render router>
+//
+// so three addresses in front of the client => 3. Verified by resolving req.ip
+// against that exact chain: 3 returns the client both with and without forged
+// entries prepended, while 2 returns the CLOUDFLARE EDGE — which rotates per
+// request (172.69.94.230, 162.158.227.142, 104.23.197.11 across five
+// consecutive requests from ONE client). That rotation is what made the
+// reverted "rightmost public entry" fix stop limiting anybody at all.
+//
+// Set too LOW and every request keys on a rotating address => nothing is ever
+// limited. Set too HIGH and the count reaches back into entries the client
+// supplied => the spoofing bypass returns. Re-measure from the logs if the
+// infrastructure in front of this server ever changes; TRUST_PROXY_HOPS exists
+// so that correction is an env change on the host, not a code redeploy.
+// ============================================================================
+const MEASURED_TRUST_PROXY_HOPS = 3;
+
+const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+const configuredHops = Number(process.env.TRUST_PROXY_HOPS);
+const trustProxyHops = trustProxy
+  ? Number.isInteger(configuredHops) && configuredHops > 0
+    ? configuredHops
+    : MEASURED_TRUST_PROXY_HOPS
+  : 0;
+
 // The obvious dev-only JWT signing secret. Fine for localhost; a production boot
 // with this value (or none) is refused by assertProductionSecrets() below, because
 // it's public in the repo and access tokens carry the admin role.
@@ -21,10 +59,14 @@ export const env = {
   port,
   corsOrigins,
   isProd: process.env.NODE_ENV === 'production',
-  // Behind a proxy/CDN (Vercel/Railway) the real client IP is in X-Forwarded-For,
-  // not the socket address. Enable ONLY when actually behind a trusted proxy —
-  // otherwise clients could spoof the header. Off in local dev.
-  trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
+  // Behind a proxy/CDN the real client IP is in X-Forwarded-For, not the socket
+  // address. Enable ONLY when actually behind a trusted proxy — otherwise clients
+  // could spoof the header. Off in local dev.
+  trustProxy,
+  // How many proxy hops sit in front of this server, passed straight to Express
+  // `trust proxy`. See TRUST_PROXY_HOPS above — this number is MEASURED, and
+  // getting it wrong breaks rate limiting in one direction or the other.
+  trustProxyHops,
   // Public origin of this API, used to build local dev image URLs.
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}`,
   // Public origin of the storefront (frontend), used to build links in emails.

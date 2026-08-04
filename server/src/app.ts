@@ -27,8 +27,10 @@ export function createApp() {
   app.use(securityHeaders);
 
   // Behind a trusted proxy/CDN (prod), trust X-Forwarded-* so req.ip is the real
-  // client IP (used by the rate limiter). Off in local dev (no proxy).
-  if (env.trustProxy) app.set('trust proxy', 1);
+  // client IP — the rate limiter keys on it, so this number is load-bearing and
+  // is the MEASURED hop count, not a default. See TRUST_PROXY_HOPS in env.ts.
+  // Off in local dev (no proxy), where req.ip is the socket address.
+  if (env.trustProxyHops > 0) app.set('trust proxy', env.trustProxyHops);
 
   // Allowed origins come from CORS_ORIGINS (comma-separated env) — the cors
   // package echoes back whichever listed origin made the request. credentials:

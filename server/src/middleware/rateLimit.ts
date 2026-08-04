@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 import { HttpError } from '../lib/http';
-import { env } from '../env';
 import { securityEvent } from '../lib/securityLog';
 
 // Minimal in-memory fixed-window rate limiter (no external dep — the stack can
@@ -12,41 +11,29 @@ interface Bucket {
   resetAt: number;
 }
 
-// The client IP used as the rate-limit key: the leftmost X-Forwarded-For entry
-// when behind a trusted proxy, else req.ip.
+// The client IP used as the rate-limit key.
 //
-// ⚠️ KNOWN WEAKNESS — the leftmost entry is client-controllable.
+// This delegates to `req.ip`, which Express resolves from X-Forwarded-For using
+// the `trust proxy` hop count set in app.ts. Do NOT hand-parse the header here:
+// picking an entry by position (leftmost or rightmost) cannot be done correctly
+// without knowing how many hops the infrastructure adds, and both attempts at
+// doing so were wrong in production.
 //
-// A proxy APPENDS the address it saw to whatever the client already sent, so the
-// header arrives as `<anything the client made up>, <appended by the proxy…>`.
-// Reading the leftmost entry therefore lets a caller mint a fresh bucket per
-// request by varying the header. Verified against production: with the real IP's
-// bucket exhausted and returning 429, a unique spoofed X-Forwarded-For returned a
-// fresh 400 every time. This affects EVERY limiter here, and is the likely gap
-// behind the flood of scripted signups.
+// - Reading the LEFTMOST entry let any caller mint a fresh bucket per request,
+//   because a proxy appends to whatever the client already sent, leaving the
+//   first entry entirely attacker-controlled. That bypass is how ~180 scripted
+//   `user_<hex>@example.com` accounts were registered.
+// - Reading the RIGHTMOST PUBLIC entry (58088af, since reverted) resolved to the
+//   Cloudflare edge address, which rotates per request — so every request got a
+//   fresh bucket and NOTHING was limited, for anyone. Worse than the bypass.
 //
-// It is nevertheless kept for now, because the obvious fix is worse if guessed.
-// Taking the rightmost public entry instead was tried and REVERTED: against the
-// real Render deployment it resolved to something appended AFTER the client
-// address that is not stable per client, so the limiter stopped limiting anyone
-// at all — strictly worse than a bypass that requires deliberate spoofing.
+// With the hop count measured from the deployment's own logs, Express walks the
+// chain correctly: it skips exactly the addresses the trusted infrastructure
+// appended and returns the first entry it did not vouch for. Prepended junk sits
+// to the LEFT of that position, so a forged header no longer changes the key.
 //
-// To fix this correctly, the platform's actual forwarded chain has to be known
-// rather than assumed. `security.rate_limited` now logs the raw `forwarded`
-// chain for exactly that purpose: read one such line from the deployment's logs,
-// count the hops, then set Express `trust proxy` to that hop count and key this
-// on `req.ip` (which resolves the chain properly once the count is right).
-// Guessing the count too high collapses every visitor into a single bucket and
-// rate-limits the whole site, so it must be measured, not inferred.
-//
-// Tracked in the vault's Known Gaps note.
+// Local dev has no proxy and no trust setting, so req.ip is the socket address.
 function clientIp(req: Request): string {
-  if (env.trustProxy) {
-    const xff = req.headers['x-forwarded-for'];
-    const raw = Array.isArray(xff) ? xff[0] : xff;
-    const first = raw?.split(',')[0]?.trim();
-    if (first) return first;
-  }
   return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
 

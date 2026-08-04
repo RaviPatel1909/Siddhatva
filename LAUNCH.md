@@ -38,7 +38,9 @@ you can go live incrementally, turning on each integration by setting its env va
 - **`.env` files are gitignored**; only `.env.example` is committed, complete for both
   frontend (root) and backend (`server/`).
 - **Graceful shutdown** on SIGTERM/SIGINT (drains in-flight requests, closes Prisma).
-- **Rate limiting** reads the real client IP via `X-Forwarded-For` when `TRUST_PROXY=true`.
+- **Rate limiting** reads the real client IP via `X-Forwarded-For` when `TRUST_PROXY=true`,
+  resolved through Express `trust proxy` using `TRUST_PROXY_HOPS` — a **measured** hop
+  count, not a guess (see below).
 - **CI**: `.github/workflows/ci.yml` typechecks + builds both packages and runs the
   e2e suite against a real Postgres.
 - **Production migrations**: `npm run migrate:deploy` (= `prisma migrate deploy`).
@@ -88,6 +90,7 @@ keep their `?sslmode=require` suffix. This becomes `DATABASE_URL`.
   | `APP_URL` | your frontend URL (used in email links) |
   | `PUBLIC_URL` | your backend URL, e.g. `https://api.siddhatva.com` |
   | `TRUST_PROXY` | `true` (behind the host's proxy) |
+  | `TRUST_PROXY_HOPS` | proxy hops in front of the server — **measure it**, see below. `3` for the current Cloudflare → Render setup |
   | `JWT_ACCESS_SECRET` | a strong random string — `openssl rand -hex 32` |
   | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` | from Cloudinary |
   | `RAZORPAY_KEY_ID` / `_KEY_SECRET` / `_WEBHOOK_SECRET` | from Razorpay |
@@ -97,6 +100,26 @@ keep their `?sslmode=require` suffix. This becomes `DATABASE_URL`.
   Any integration whose vars you leave unset stays in its **dev fallback** (mock
   payments/shipping, dev email, local image store) — safe, but not real. Turn them on
   when ready.
+
+#### Measuring `TRUST_PROXY_HOPS` (do this whenever the infra in front changes)
+
+Rate limiting keys on `req.ip`, which Express resolves by walking `X-Forwarded-For`
+inward by exactly this many hops. **It cannot be reasoned out — measure it.** Two
+attempts to infer it from first principles both shipped broken.
+
+1. Trip a limiter from a machine whose public IP you know: 25 × `POST {}` to
+   `/api/auth/register`, sending **no** `X-Forwarded-For` of your own. The limiter
+   runs before validation, so these are `400`s and create no accounts.
+2. In the host's logs find
+   `[security] {"event":"security.rate_limited",...,"forwarded":"..."}` and read the
+   chain, e.g. `223.181.72.69, 172.69.94.230, 10.28.61.119`.
+3. Count **every address in front of your own**, then **add 1 for the socket**. Above:
+   your IP + a Cloudflare edge + a Render internal address, plus the socket ⇒ **3**.
+
+Sanity-check the result by re-probing after deploy: a run with no `X-Forwarded-For`
+must still trip at the limit, **and** a run varying a forged `X-Forwarded-For` must
+also trip. If forged headers keep earning fresh `400`s the count is too high; if
+nothing ever trips it is too low. Either way, revert and re-measure.
 
 ### 3. Frontend (Vercel / Netlify)
 - **Build command:** `npm run build`  ·  **Output directory:** `build`
