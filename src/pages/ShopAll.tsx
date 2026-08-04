@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Seo } from '../components/seo/Seo';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ProductGrid } from '../components/product/ProductGrid';
+import { FilterPanel } from '../components/product/FilterPanel';
 import { Breadcrumb } from '../components/shared/Breadcrumb';
 import { Pagination } from '../components/ui/Pagination';
 import { SortSelect } from '../components/ui/SortSelect';
@@ -11,9 +12,15 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
 import { ProductSortOption } from '../api/types';
+import {
+  CatalogFilters,
+  EMPTY_FILTERS,
+  hasActiveFilters,
+  parseFilters,
+  writeFilters,
+} from '../lib/catalogFilters';
 
 const PAGE_SIZE = 8;
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 const SORT_OPTIONS = [
   { value: 'featured', label: 'Sort By: Featured' },
@@ -24,18 +31,22 @@ const SORT_OPTIONS = [
 export const ShopAllPage: React.FC = () => {
   const navigate = useNavigate();
   const { category } = useParams<{ category?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = category ?? null;
-  const [activeColorId, setActiveColorId] = useState<string | null>(null);
-  const [sort, setSort] = useState<ProductSortOption>('featured');
-  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    setPage(1);
-  }, [activeCategory]);
+  // All filter/sort/page state lives in the URL, so a filtered grid is
+  // shareable and back/forward moves through refinements (see
+  // src/lib/catalogFilters.ts). Category stays the route.
+  const filters = parseFilters(searchParams);
+  const sort = (searchParams.get('sort') as ProductSortOption | null) ?? 'featured';
+  const page = Math.max(1, Number(searchParams.get('page') ?? 1));
 
   const params = {
     category: activeCategory ?? undefined,
-    color: activeColorId ?? undefined,
+    color: filters.color ?? undefined,
+    size: filters.size ?? undefined,
+    minPrice: filters.minPrice ?? undefined,
+    maxPrice: filters.maxPrice ?? undefined,
     sort,
     page,
     pageSize: PAGE_SIZE,
@@ -52,15 +63,37 @@ export const ShopAllPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const facetCategories = data?.facets.categories ?? [];
   const facetColors = data?.facets.colors ?? [];
+  const facetSizes = data?.facets.sizes ?? [];
   const catalogTotal = facetCategories.reduce((sum, c) => sum + c.count, 0);
 
-  const handleCategoryClick = (name: string | null) => {
-    navigate(name ? `/shop/${name}` : '/shop');
+  // Every filter change drops `page` (writeFilters), so a refinement can never
+  // strand the shopper on a page that no longer exists.
+  const applyFilters = (next: Partial<CatalogFilters>) => {
+    setSearchParams(writeFilters(searchParams, { ...filters, ...next }), { replace: false });
   };
 
-  const handleColorClick = (id: string | null) => {
-    setActiveColorId((current) => (current === id ? null : id));
-    setPage(1);
+  const clearFilters = () => {
+    setSearchParams(writeFilters(searchParams, EMPTY_FILTERS), { replace: false });
+  };
+
+  const handleSortChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('sort', value);
+    next.delete('page');
+    setSearchParams(next);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete('page');
+    else next.set('page', String(nextPage));
+    setSearchParams(next);
+  };
+
+  // Switching category is a route change; filters do not carry across, since a
+  // colour or size that exists in one category often does not in the next.
+  const handleCategoryClick = (name: string | null) => {
+    navigate(name ? `/shop/${name}` : '/shop');
   };
 
   const catTitle = activeCategory ? `${activeCategory} Collection` : 'Shop All';
@@ -68,13 +101,20 @@ export const ShopAllPage: React.FC = () => {
     ? `Shop ${activeCategory.toLowerCase()} pieces from Siddhatva — luxe minimalist editorial fashion crafted with intention.`
     : 'Browse the full Siddhatva collection — luxe minimalist editorial fashion in bronze, blush and champagne.';
 
+  const categoryChip = (active: boolean) =>
+    `whitespace-nowrap rounded-full border px-md py-xs font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
+      active
+        ? 'border-primary bg-primary/10 text-primary'
+        : 'border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'
+    }`;
+
   return (
     <MainLayout>
       <Seo title={catTitle} description={catDesc} canonicalPath={activeCategory ? `/shop/${activeCategory}` : '/shop'} />
       <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-xl">
         <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'All Collections' }]} />
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-md mb-xl">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
           <div>
             <h1 className="font-display text-headline-lg text-on-surface">All Collections</h1>
             <p className="font-body-md text-body-md text-on-surface-variant mt-xs">
@@ -86,121 +126,75 @@ export const ShopAllPage: React.FC = () => {
             ariaLabel="Sort products"
             options={SORT_OPTIONS}
             value={sort}
-            onChange={(value) => setSort(value as ProductSortOption)}
+            onChange={handleSortChange}
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-xl">
-          {/* Filter Sidebar */}
-          <aside className="md:col-span-1 space-y-xl">
-            <div>
-              <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-md">
-                Categories
-              </h3>
-              {data ? (
-                <ul className="space-y-sm">
-                  <li>
-                    <button
-                      onClick={() => handleCategoryClick(null)}
-                      className={`font-body-md text-sm transition-colors ${
-                        activeCategory === null ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-primary'
-                      }`}
-                    >
-                      All ({catalogTotal})
-                    </button>
-                  </li>
-                  {facetCategories.map((cat) => (
-                    <li key={cat.name}>
-                      <button
-                        onClick={() => handleCategoryClick(cat.name)}
-                        className={`font-body-md text-sm transition-colors ${
-                          activeCategory === cat.name ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-primary'
-                        }`}
-                      >
-                        {cat.name} ({cat.count})
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="space-y-sm">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-4 w-24" />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-md">
-                Color
-              </h3>
-              <div className="flex flex-wrap gap-sm">
-                {data
-                  ? facetColors.map((color) => (
-                      <button
-                        key={color.id}
-                        onClick={() => handleColorClick(color.id)}
-                        title={color.name}
-                        className={`w-8 h-8 rounded-full border-2 transition-all ${
-                          activeColorId === color.id ? 'border-primary ring-2 ring-primary/30' : 'border-outline-variant'
-                        }`}
-                        style={{ backgroundColor: color.hex }}
-                      />
-                    ))
-                  : Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="w-8 h-8 rounded-full" />)}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-md">
-                Size
-              </h3>
-              <div className="flex flex-wrap gap-sm">
-                {SIZES.map((size) => (
-                  <span
-                    key={size}
-                    className="w-9 h-9 flex items-center justify-center rounded border border-outline-variant text-xs text-on-surface-variant"
-                  >
-                    {size}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-md">
-                Price Range
-              </h3>
-              <input type="range" min="0" max="8000" defaultValue="8000" className="w-full accent-primary" disabled />
-              <div className="flex justify-between text-xs text-on-surface-variant mt-xs">
-                <span>₹0</span>
-                <span>₹8,000+</span>
-              </div>
-            </div>
-          </aside>
-
-          {/* Product Grid */}
-          <div className="md:col-span-3">
-            <ProductGrid
-              items={items}
-              isLoading={isLoading}
-              isError={isError}
-              isPlaceholderData={isPlaceholderData}
-              onRetry={() => refetch()}
-            />
-            {!isLoading && !isError && (
-              <>
-                {items.length === 0 && (
-                  <p className="text-center text-on-surface-variant py-xl">No pieces match these filters.</p>
-                )}
-                <div className="flex justify-center mt-xl">
-                  <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
-                </div>
-              </>
-            )}
-          </div>
+        {/* Categories are navigation, so they stay on the page as a horizontal
+            rail rather than moving into the panel — one row instead of the old
+            sidebar column. */}
+        <div className="flex items-center gap-sm overflow-x-auto pb-xs -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+          {data ? (
+            <>
+              <button onClick={() => handleCategoryClick(null)} className={categoryChip(activeCategory === null)}>
+                All ({catalogTotal})
+              </button>
+              {facetCategories.map((cat) => (
+                <button
+                  key={cat.name}
+                  onClick={() => handleCategoryClick(cat.name)}
+                  className={categoryChip(activeCategory === cat.name)}
+                >
+                  {cat.name} ({cat.count})
+                </button>
+              ))}
+            </>
+          ) : (
+            Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-24 rounded-full" />)
+          )}
         </div>
+
+        <div className="flex items-center justify-between gap-md mt-md mb-xl">
+          <FilterPanel
+            colors={facetColors}
+            sizes={facetSizes}
+            price={data?.facets.price}
+            filters={filters}
+            onChange={applyFilters}
+            onClearAll={clearFilters}
+            isLoading={isLoading}
+            resultCount={total}
+          />
+          {hasActiveFilters(filters) && (
+            <button
+              onClick={clearFilters}
+              data-testid="clear-filters-inline"
+              className="font-body-md text-sm text-on-surface-variant hover:text-primary transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        <ProductGrid
+          items={items}
+          isLoading={isLoading}
+          isError={isError}
+          isPlaceholderData={isPlaceholderData}
+          onRetry={() => refetch()}
+        />
+        {!isLoading && !isError && (
+          <>
+            {items.length === 0 && (
+              <p className="text-center text-on-surface-variant py-xl" data-testid="no-matches">
+                No pieces match these filters.
+              </p>
+            )}
+            <div className="flex justify-center mt-xl">
+              <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
+            </div>
+          </>
+        )}
       </div>
     </MainLayout>
   );
