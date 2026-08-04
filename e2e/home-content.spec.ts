@@ -50,6 +50,52 @@ test('home renders the static fallback when the content API fails', async ({ pag
   await expect(page.getByText('The Golden Circle')).toBeVisible();
 });
 
+// Link validation in the editor. Production once shipped `primaryCtaHref: "/Shop "`
+// — capital S plus a trailing space — which matches no route, so the storefront's
+// primary call-to-action opened a completely blank page (not even a 404: there is
+// no catch-all and layout lives inside each page component). Two invisible
+// characters took out the main conversion path with nothing to catch it.
+test('the editor blocks a link that matches no route, and offers the fix', async ({ page }) => {
+  await loginAdmin(page);
+  await page.goto('/admin/home');
+
+  const link = page.getByLabel('Hero primary button link');
+  await expect(link).toBeVisible({ timeout: 10_000 });
+  const original = await link.inputValue();
+
+  // The exact production value.
+  await link.fill('/Shop ');
+
+  await expect(page.getByRole('alert').filter({ hasText: 'not a route' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save Changes' }).first()).toBeDisabled();
+
+  // The casing/whitespace slip is recoverable, so the fix is one click.
+  await page.getByRole('button', { name: /Use “\/shop”/ }).click();
+  await expect(link).toHaveValue('/shop');
+  await expect(page.getByRole('button', { name: 'Save Changes' }).first()).toBeEnabled();
+
+  // Restore, keeping the suite idempotent.
+  await link.fill(original);
+});
+
+test('saving trims stray whitespace out of content', async ({ page }) => {
+  await loginAdmin(page);
+  await page.goto('/admin/home');
+
+  const headline = page.getByLabel('Hero headline');
+  await expect(headline).toBeVisible({ timeout: 10_000 });
+  const original = await headline.inputValue();
+
+  await headline.fill(`  ${original} `);
+  await page.getByRole('button', { name: 'Save Changes' }).first().click();
+  await expect(page.getByText('Saved')).toBeVisible({ timeout: 10_000 });
+
+  // Trimmed in the form and, on reload, in what was persisted.
+  await expect(headline).toHaveValue(original);
+  await page.reload();
+  await expect(page.getByLabel('Hero headline')).toHaveValue(original, { timeout: 10_000 });
+});
+
 // The flash regression. The static fallback is the ERROR state; it used to double
 // as the LOADING state (`data ?? HOME_FALLBACK`), so every visitor rendered the
 // stale hardcoded copy on mount and watched it swap to the admin-edited content
