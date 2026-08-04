@@ -29,6 +29,8 @@ const LoginPage = named(() => import('./pages/Login'), 'LoginPage');
 const RegisterPage = named(() => import('./pages/Register'), 'RegisterPage');
 const ForgotPasswordPage = named(() => import('./pages/ForgotPassword'), 'ForgotPasswordPage');
 const ResetPasswordPage = named(() => import('./pages/ResetPassword'), 'ResetPasswordPage');
+const VerifyEmailPage = named(() => import('./pages/VerifyEmail'), 'VerifyEmailPage');
+const ResendVerificationPage = named(() => import('./pages/ResendVerification'), 'ResendVerificationPage');
 const AccountOverviewPage = named(() => import('./pages/account/AccountOverview'), 'AccountOverviewPage');
 const MyOrdersPage = named(() => import('./pages/account/MyOrders'), 'MyOrdersPage');
 const MyWishlistPage = named(() => import('./pages/account/MyWishlist'), 'MyWishlistPage');
@@ -73,6 +75,8 @@ const AnimatedRoutes = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/resend-verification" element={<ResendVerificationPage />} />
 
         {/* Footer compliance / info pages (public, indexable) */}
         <Route path="/contact" element={<ContactPage />} />

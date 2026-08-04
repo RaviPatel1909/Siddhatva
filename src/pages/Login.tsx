@@ -8,6 +8,7 @@ import { Seo } from '../components/seo/Seo';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
+import { EMAIL_NOT_VERIFIED, resendVerificationRequest } from '../api/auth';
 
 const schema = z.object({
   email: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Enter a valid email'),
@@ -28,8 +29,24 @@ export const LoginPage: React.FC = () => {
   const locState = location.state as { from?: { pathname?: string }; notice?: string } | null;
   const from = locState?.from?.pathname ?? '/account';
   const [serverError, setServerError] = useState<string | null>(null);
+  // Credentials were correct but the address is unconfirmed. Tracked separately
+  // from serverError because it isn't a failure the user can fix by retyping —
+  // it needs its own explanation and a way out.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
   // One-time notice passed from e.g. a successful password reset.
   const notice = locState?.notice ?? null;
+
+  const onResend = async () => {
+    if (!unverifiedEmail || resendState === 'sending') return;
+    setResendState('sending');
+    try {
+      await resendVerificationRequest({ email: unverifiedEmail });
+    } catch {
+      /* response is intentionally identical regardless — never surface a failure */
+    }
+    setResendState('sent');
+  };
 
   const {
     register,
@@ -39,10 +56,17 @@ export const LoginPage: React.FC = () => {
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
+    setUnverifiedEmail(null);
+    setResendState('idle');
     try {
       await login(values.email, values.password);
       navigate(from, { replace: true });
     } catch (err) {
+      // Branch on the server's code, not its message — the message is copy.
+      if (err instanceof ApiError && err.code === EMAIL_NOT_VERIFIED) {
+        setUnverifiedEmail(values.email);
+        return;
+      }
       setServerError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     }
   });
@@ -65,6 +89,47 @@ export const LoginPage: React.FC = () => {
         {serverError && (
           <div role="alert" className="mb-lg rounded-lg bg-danger/10 border border-danger/30 px-md py-sm text-sm text-danger">
             {serverError}
+          </div>
+        )}
+
+        {/* Correct password, unconfirmed address. Explain it, and give a way
+            through on this screen — the address is already typed, so asking the
+            user to go and re-enter it elsewhere would be needless friction. */}
+        {unverifiedEmail && (
+          <div
+            role="alert"
+            data-testid="login-unverified"
+            className="mb-lg rounded-lg bg-warning/10 border border-warning/30 px-md py-md"
+          >
+            <div className="flex items-start gap-sm">
+              <span className="material-symbols-outlined text-xl text-warning shrink-0">mark_email_unread</span>
+              <div>
+                <p className="font-body-md text-sm text-on-surface font-semibold mb-xs">
+                  Confirm your email to sign in
+                </p>
+                <p className="font-body-md text-sm text-on-surface-variant mb-xs">
+                  We sent a confirmation link to <span className="font-semibold">{unverifiedEmail}</span>.
+                  Open it to activate your account.
+                </p>
+                <p className="font-body-md text-xs text-on-surface-variant mb-sm">
+                  Can&apos;t find it? Check your spam or junk folder — it sometimes lands there.
+                </p>
+                {resendState === 'sent' ? (
+                  <p className="font-body-md text-sm text-success font-semibold">
+                    Sent. Check your inbox (and spam).
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onResend}
+                    disabled={resendState === 'sending'}
+                    className="text-primary font-semibold text-sm hover:underline disabled:opacity-60"
+                  >
+                    {resendState === 'sending' ? 'Sending…' : 'Resend confirmation email'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

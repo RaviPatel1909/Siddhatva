@@ -34,6 +34,10 @@ export const RegisterPage: React.FC = () => {
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/account';
   const [serverError, setServerError] = useState<string | null>(null);
+  // Set when the server withheld the session pending email confirmation. There
+  // is nothing to navigate to in that case — the account exists but isn't usable
+  // until the link is opened.
+  const [awaitingVerification, setAwaitingVerification] = useState<string | null>(null);
 
   const {
     register,
@@ -44,12 +48,45 @@ export const RegisterPage: React.FC = () => {
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
     try {
-      await registerUser(values.email, values.name, values.password);
+      const { verificationRequired } = await registerUser(values.email, values.name, values.password);
+      if (verificationRequired) {
+        setAwaitingVerification(values.email);
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     }
   });
+
+  if (awaitingVerification) {
+    return (
+      <MainLayout>
+        <Seo title="Confirm your email" noindex />
+        <div className="max-w-md mx-auto px-margin-mobile py-24 text-center" data-testid="register-check-inbox">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-lg">
+            <span className="material-symbols-outlined text-3xl text-primary">outgoing_mail</span>
+          </div>
+          <h1 className="font-display text-headline-lg text-on-surface mb-xs">Check your inbox</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant mb-sm">
+            We&apos;ve sent a confirmation link to{' '}
+            <span className="font-semibold">{awaitingVerification}</span>. Open it to activate your
+            account, then sign in.
+          </p>
+          <p className="font-body-md text-sm text-on-surface-variant mb-lg">
+            It can take a minute to arrive — and do check your spam or junk folder.
+          </p>
+          <Link
+            to="/resend-verification"
+            state={{ email: awaitingVerification }}
+            className="text-primary font-semibold hover:underline"
+          >
+            Didn&apos;t get it? Send another
+          </Link>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

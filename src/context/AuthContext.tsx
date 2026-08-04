@@ -7,7 +7,14 @@ interface AuthContextValue {
   role: Role | null;
   loading: boolean; // true until the initial session check resolves
   login: (email: string, password: string) => Promise<AuthUser>;
-  register: (email: string, name: string, password: string) => Promise<AuthUser>;
+  // Resolves `verificationRequired: true` when the server withheld the session
+  // pending email confirmation — in that case no user is signed in and the
+  // caller should show "check your inbox" rather than navigating to the account.
+  register: (
+    email: string,
+    name: string,
+    password: string
+  ) => Promise<{ user: AuthUser; verificationRequired: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -42,11 +49,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.user;
   };
 
-  const register = async (email: string, name: string, password: string): Promise<AuthUser> => {
+  const register = async (
+    email: string,
+    name: string,
+    password: string
+  ): Promise<{ user: AuthUser; verificationRequired: boolean }> => {
     const res = await registerRequest({ email, name, password });
+    // With verification enforced the server returns no accessToken — signing in
+    // is deferred until the address is confirmed, so leave the session empty
+    // rather than half-populating it with a user and no token.
+    if (res.verificationRequired || !res.accessToken) {
+      return { user: res.user, verificationRequired: true };
+    }
     setAccessToken(res.accessToken);
     setUser(res.user);
-    return res.user;
+    return { user: res.user, verificationRequired: false };
   };
 
   const logout = async (): Promise<void> => {

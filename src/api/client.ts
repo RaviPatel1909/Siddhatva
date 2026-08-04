@@ -14,6 +14,18 @@ export class ApiError extends Error {
     this.status = status;
     this.body = body;
   }
+
+  // The server's optional machine-readable discriminator (e.g.
+  // 'EMAIL_NOT_VERIFIED'). Present only on errors the client must branch on;
+  // branch on this, never on `message`, which is human-facing copy.
+  get code(): string | undefined {
+    const body = this.body;
+    if (body && typeof body === 'object' && 'code' in body) {
+      const code = (body as { code: unknown }).code;
+      return typeof code === 'string' ? code : undefined;
+    }
+    return undefined;
+  }
 }
 
 export interface ApiFetchOptions {
