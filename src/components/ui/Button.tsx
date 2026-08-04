@@ -12,6 +12,7 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'md',
   isLoading = false,
   disabled,
+  className = '',
   ...props
 }) => {
   const baseStyles = 'font-label-sm uppercase tracking-widest rounded transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50';
@@ -32,10 +33,13 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
+    // A caller's className is appended, not spread over the computed one: with
+    // `{...props}` last, passing className used to replace the variant/size
+    // styles wholesale and silently render an unstyled button.
     <button
       className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${
         isLoading ? 'opacity-75 cursor-not-allowed' : ''
-      }`}
+      } ${className}`}
       disabled={disabled || isLoading}
       {...props}
     >
