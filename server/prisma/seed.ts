@@ -111,12 +111,19 @@ async function main() {
   const adminCreds = resolveSeedPassword('SEED_ADMIN_PASSWORD');
   const customerCreds = resolveSeedPassword('SEED_CUSTOMER_PASSWORD');
 
+  // Both fixtures are seeded EMAIL-VERIFIED. They stand in for established
+  // accounts (the admin is grandfathered exactly as the migration grandfathers
+  // real admins; the customer owns the order history below), and seeding them
+  // unverified would block every other spec the moment
+  // REQUIRE_EMAIL_VERIFICATION is switched on locally. The unverified path is
+  // covered by accounts the verification spec registers itself.
   await prisma.user.create({
     data: {
       email: 'admin@siddhatva.com',
       name: 'Admin Sterling',
       password: bcrypt.hashSync(adminCreds.password, 10),
       role: 'ADMIN',
+      emailVerifiedAt: new Date(),
     },
   });
   const user = await prisma.user.create({
@@ -125,6 +132,7 @@ async function main() {
       name: 'Alexander Sterling',
       password: bcrypt.hashSync(customerCreds.password, 10),
       role: 'CUSTOMER',
+      emailVerifiedAt: new Date(),
     },
   });
 

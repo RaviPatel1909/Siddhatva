@@ -93,12 +93,18 @@ model User {
   name          String
   password      String // bcrypt hash
   role          Role           @default(CUSTOMER)
+  // When the email address was proven reachable. NULL = unverified. Nullable
+  // rather than a boolean so it doubles as an audit timestamp, and so the
+  // default for every row (existing and new) is honestly "not verified yet".
+  // Only ENFORCED when REQUIRE_EMAIL_VERIFICATION is on — see env.ts.
+  emailVerifiedAt DateTime?
   orders        Order[]
   wishlist      WishlistItem[]
   reviews       Review[]
   addresses     Address[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   createdAt     DateTime       @default(now())
 }
 
@@ -119,6 +125,21 @@ model RefreshToken {
 // One-time password reset token. Only the sha256 HASH of the raw token is
 // stored (never the raw token). Short-lived (expiresAt) and single-use (usedAt).
 model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// One-time email verification token. Deliberately identical in shape to
+// PasswordResetToken (hashed, expiring, single-use) — same threat model, same
+// handling, so there is one idiom to reason about rather than two.
+model EmailVerificationToken {
   id        String    @id @default(cuid())
   tokenHash String    @unique
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
