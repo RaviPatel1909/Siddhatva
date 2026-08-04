@@ -5,6 +5,7 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { Seo } from '../components/seo/Seo';
 import { ProductCard } from '../components/product/ProductCard';
 import { ProductCardSkeleton } from '../components/product/ProductCardSkeleton';
+import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { FadeInSection } from '../components/shared/FadeInSection';
 import { useCart } from '../context/CartContext';
@@ -13,8 +14,14 @@ import { getProducts } from '../api/products';
 import { queryKeys } from '../api/queryKeys';
 
 // CRITICAL FALLBACK: the current values, shipped as a static constant. Used
-// while loading, on fetch error, or if content is missing — the home page must
-// never render blank. Worst case it looks exactly like it does today.
+// ONLY when the content query genuinely fails — the home page must never render
+// blank. Worst case it looks exactly like it does today.
+//
+// It is deliberately NOT the loading state. Rendering it while the query was
+// still in flight meant every visitor saw this stale copy first and watched it
+// swap to the admin-edited content a beat later — very visible on Render's
+// free-tier cold starts. Loading renders skeletons instead (see `content`
+// below); the fallback is reserved for the error path the e2e spec guards.
 const HOME_FALLBACK: HomeContent = {
   hero: {
     image:
@@ -80,11 +87,15 @@ export const HomePage: React.FC = () => {
   });
   const newArrivals = newArrivalsData?.items ?? [];
 
-  // Content is query-driven, but ALWAYS falls back to the static values so the
-  // page (and especially the hero) can never render blank or broken.
-  const { data } = useQuery({ queryKey: ['site', 'home'], queryFn: getHomeContent });
-  const content = data ?? HOME_FALLBACK;
-  const { hero, philosophy, collectionCards, newsletter } = content;
+  // Content is query-driven. Loading and error are deliberately DIFFERENT states:
+  //   loading → `null` → skeletons (never the stale static copy, which flashed)
+  //   error   → HOME_FALLBACK, so the page can never render blank or broken
+  const { data, isError } = useQuery({ queryKey: ['site', 'home'], queryFn: getHomeContent });
+  const content: HomeContent | null = data ?? (isError ? HOME_FALLBACK : null);
+  const hero = content?.hero;
+  const philosophy = content?.philosophy;
+  const collectionCards = content?.collectionCards;
+  const newsletter = content?.newsletter;
 
   const go = (href: string) => {
     if (href && href !== '#') navigate(href);
@@ -108,37 +119,58 @@ export const HomePage: React.FC = () => {
       <Seo
         canonicalPath="/"
         description="Luxe minimalist editorial fashion from Siddhatva — bronze, blush and champagne essentials crafted with intention. Shop the collection."
-        image={content.hero.image}
+        image={content?.hero.image}
       />
-      {/* Hero */}
-      <section className="relative h-[85vh] overflow-hidden">
-        <div className="absolute inset-0 bg-on-background/20 z-10" />
-        <div
-          ref={heroBgRef}
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-[3000ms] ease-out"
-          style={{ backgroundImage: `url('${hero.image}')` }}
-        />
+      {/* Hero — h-[85vh] regardless of state, so the skeleton reserves exactly
+          the space the loaded hero occupies and resolving causes no layout shift. */}
+      <section
+        className={`relative h-[85vh] overflow-hidden ${hero ? '' : 'bg-surface-container'}`}
+      >
+        {hero && <div className="absolute inset-0 bg-on-background/20 z-10" />}
+        {hero && (
+          <div
+            ref={heroBgRef}
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-[3000ms] ease-out"
+            style={{ backgroundImage: `url('${hero.image}')` }}
+          />
+        )}
         <div className="relative z-20 h-full flex flex-col justify-center items-center text-center px-margin-mobile">
-          <span className="font-label-sm text-label-sm text-white uppercase tracking-[0.3em] mb-md drop-shadow-sm">
-            {hero.subheadline}
-          </span>
-          <h1 className="font-display text-4xl md:text-display text-white max-w-4xl mb-lg drop-shadow-md">
-            {hero.headline}
-          </h1>
-          <div className="flex flex-col sm:flex-row gap-md">
-            <button
-              onClick={() => go(hero.primaryCtaHref)}
-              className="bg-primary text-on-primary px-xl py-md rounded font-body-md font-semibold hover:brightness-110 transition-all active:scale-95 shadow-lg"
-            >
-              {hero.primaryCtaLabel}
-            </button>
-            <button
-              onClick={() => go(hero.secondaryCtaHref)}
-              className="border border-white text-white px-xl py-md rounded font-body-md font-semibold hover:bg-white/10 backdrop-blur-md transition-all active:scale-95"
-            >
-              {hero.secondaryCtaLabel}
-            </button>
-          </div>
+          {hero ? (
+            <>
+              <span className="font-label-sm text-label-sm text-white uppercase tracking-[0.3em] mb-md drop-shadow-sm">
+                {hero.subheadline}
+              </span>
+              <h1 className="font-display text-4xl md:text-display text-white max-w-4xl mb-lg drop-shadow-md">
+                {hero.headline}
+              </h1>
+              <div className="flex flex-col sm:flex-row gap-md">
+                <button
+                  onClick={() => go(hero.primaryCtaHref)}
+                  className="bg-primary text-on-primary px-xl py-md rounded font-body-md font-semibold hover:brightness-110 transition-all active:scale-95 shadow-lg"
+                >
+                  {hero.primaryCtaLabel}
+                </button>
+                <button
+                  onClick={() => go(hero.secondaryCtaHref)}
+                  className="border border-white text-white px-xl py-md rounded font-body-md font-semibold hover:bg-white/10 backdrop-blur-md transition-all active:scale-95"
+                >
+                  {hero.secondaryCtaLabel}
+                </button>
+              </div>
+            </>
+          ) : (
+            // Mirrors the loaded hero's rhythm (eyebrow · headline · two CTAs)
+            // at the same sizes, so nothing moves when the real copy arrives.
+            <div className="flex flex-col items-center" data-testid="home-hero-skeleton">
+              <Skeleton className="h-3 w-40 mb-md" />
+              <Skeleton className="h-12 md:h-[48px] w-[min(90vw,36rem)] mb-sm" />
+              <Skeleton className="h-12 md:h-[48px] w-[min(70vw,24rem)] mb-lg" />
+              <div className="flex flex-col sm:flex-row gap-md">
+                <Skeleton className="h-12 w-48" />
+                <Skeleton className="h-12 w-48" />
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -195,11 +227,17 @@ export const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop grid grid-cols-1 md:grid-cols-2 gap-xl items-center">
           <div className="relative">
             <div className="aspect-[4/5] relative z-10 overflow-hidden rounded shadow-2xl">
-              <img
-                src={philosophy.image}
-                alt="The Philosophy"
-                className="w-full h-full object-cover hover:scale-110 transition-transform duration-[4000ms]"
-              />
+              {philosophy ? (
+                <img
+                  src={philosophy.image}
+                  alt="The Philosophy"
+                  className="w-full h-full object-cover hover:scale-110 transition-transform duration-[4000ms]"
+                />
+              ) : (
+                // The aspect-ratio wrapper already reserves the box; the skeleton
+                // just fills it.
+                <Skeleton className="w-full h-full" />
+              )}
             </div>
             <div className="absolute -bottom-8 -right-8 w-48 h-48 bg-tertiary/20 rounded -z-0 hidden md:block" />
           </div>
@@ -207,10 +245,23 @@ export const HomePage: React.FC = () => {
             <span className="font-label-sm text-label-sm text-primary uppercase tracking-[0.3em] font-bold">
               The Philosophy
             </span>
-            <h2 className="font-display text-headline-lg leading-tight">{philosophy.heading}</h2>
-            <p className="font-body-md text-body-lg text-on-surface-variant leading-relaxed">
-              {philosophy.body}
-            </p>
+            {philosophy ? (
+              <>
+                <h2 className="font-display text-headline-lg leading-tight">{philosophy.heading}</h2>
+                <p className="font-body-md text-body-lg text-on-surface-variant leading-relaxed">
+                  {philosophy.body}
+                </p>
+              </>
+            ) : (
+              <>
+                <Skeleton className="h-8 w-4/5" />
+                <div className="space-y-sm">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-3/4" />
+                </div>
+              </>
+            )}
             <div className="flex flex-col gap-lg border-l-2 border-primary/20 pl-lg">
               <div>
                 <h4 className="font-display text-lg text-primary">Conscious Materiality</h4>
@@ -236,27 +287,34 @@ export const HomePage: React.FC = () => {
       <FadeInSection className="py-24 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto">
         <h2 className="font-display text-headline-lg text-center mb-xl">Curated Collections</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
-          {collectionCards.map((collection, i) => (
-            <button
-              key={collection.label + i}
-              onClick={() => go(collection.href)}
-              className="relative group h-[600px] overflow-hidden rounded shadow-lg bg-surface-container text-left"
-            >
-              <img
-                src={collection.image}
-                alt={collection.label}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-              />
-              <div className={`absolute inset-0 bg-gradient-to-t ${CARD_STYLES[i]?.gradient ?? 'from-primary/60'} via-transparent to-transparent opacity-80`} />
-              <div className="absolute bottom-lg left-lg p-md">
-                <h3 className="font-display text-2xl text-white mb-xs">{collection.label}</h3>
-                <p className="font-body-md text-sm text-white/90 mb-md">{CARD_STYLES[i]?.copy ?? ''}</p>
-                <span className="text-white border-b-2 border-white pb-1 font-label-sm text-label-sm font-bold">
-                  EXPLORE
-                </span>
-              </div>
-            </button>
-          ))}
+          {!collectionCards
+            ? // Same h-[600px] as a real card, so the grid doesn't resize on load.
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-[600px] w-full" />
+              ))
+            : collectionCards.map((collection, i) => (
+                <button
+                  key={collection.label + i}
+                  onClick={() => go(collection.href)}
+                  className="relative group h-[600px] overflow-hidden rounded shadow-lg bg-surface-container text-left"
+                >
+                  <img
+                    src={collection.image}
+                    alt={collection.label}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                  />
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-t ${CARD_STYLES[i]?.gradient ?? 'from-primary/60'} via-transparent to-transparent opacity-80`}
+                  />
+                  <div className="absolute bottom-lg left-lg p-md">
+                    <h3 className="font-display text-2xl text-white mb-xs">{collection.label}</h3>
+                    <p className="font-body-md text-sm text-white/90 mb-md">{CARD_STYLES[i]?.copy ?? ''}</p>
+                    <span className="text-white border-b-2 border-white pb-1 font-label-sm text-label-sm font-bold">
+                      EXPLORE
+                    </span>
+                  </div>
+                </button>
+              ))}
         </div>
       </FadeInSection>
 
@@ -266,8 +324,22 @@ export const HomePage: React.FC = () => {
           <span className="font-label-sm text-label-sm text-primary uppercase tracking-[0.2em] mb-md block font-bold">
             The Golden Circle
           </span>
-          <h2 className="font-display text-headline-lg mb-lg">{newsletter.heading}</h2>
-          <p className="font-body-md text-body-md text-on-surface-variant mb-xl">{newsletter.subtext}</p>
+          {newsletter ? (
+            <>
+              <h2 className="font-display text-headline-lg mb-lg">{newsletter.heading}</h2>
+              <p className="font-body-md text-body-md text-on-surface-variant mb-xl">
+                {newsletter.subtext}
+              </p>
+            </>
+          ) : (
+            <>
+              <Skeleton className="h-8 w-2/3 mx-auto mb-lg" />
+              <div className="space-y-sm mb-xl">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-5/6 mx-auto" />
+              </div>
+            </>
+          )}
           <form onSubmit={(e) => e.preventDefault()} className="flex flex-col sm:flex-row gap-md">
             <input
               className="flex-grow bg-surface border border-outline-variant px-lg py-md rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-body-md"
