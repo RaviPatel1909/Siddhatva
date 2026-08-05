@@ -24,6 +24,13 @@ async function loginUI(page: Page, email: string, password: string): Promise<voi
   await expect(accountMenu(page)).toBeVisible({ timeout: 10_000 });
 }
 
+// Create an account AND sign into it.
+//
+// Registration deliberately no longer establishes a session — it ends on the
+// "check your email" screen — so signing in is now a separate step. The guest →
+// account wishlist merge is driven by `user` becoming non-null in AuthContext,
+// which the login triggers, so the isolation behaviour under test is unchanged;
+// only the number of steps to reach a signed-in fresh account is.
 async function registerUI(page: Page, name: string, email: string, password: string): Promise<void> {
   await page.goto('/register');
   await page.locator('input[name="name"]').fill(name);
@@ -31,7 +38,8 @@ async function registerUI(page: Page, name: string, email: string, password: str
   await page.locator('input[name="password"]').fill(password);
   await page.locator('input[name="confirmPassword"]').fill(password);
   await page.getByRole('button', { name: 'Create Account' }).click();
-  await expect(accountMenu(page)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('register-check-inbox')).toBeVisible({ timeout: 10_000 });
+  await loginUI(page, email, password);
 }
 
 async function logoutUI(page: Page): Promise<void> {

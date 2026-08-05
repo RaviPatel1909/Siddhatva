@@ -43,9 +43,14 @@ test('forgot-password gives an identical response for existing vs non-existing e
 });
 
 test('reset sets the new password, is single-use, and revokes existing sessions', async () => {
-  const session = await request.newContext(); // holds the refresh cookie from register
+  const session = await request.newContext();
   const email = uniqueEmail('single');
+  // Register does NOT establish a session, so this context has to log in to hold
+  // a refresh cookie. Without that the revocation assertion below would pass
+  // vacuously — /auth/refresh 401s just as readily when no cookie was ever set,
+  // which would look green while proving nothing.
   await register(session, email, 'oldpassword123');
+  expect((await login(session, email, 'oldpassword123')).status()).toBe(200);
 
   // Reset is driven from a SEPARATE context so `session` keeps its old refresh
   // cookie — letting us prove it's revoked (not merely cleared).

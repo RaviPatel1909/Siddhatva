@@ -82,20 +82,46 @@ async function tokenFor(rc: APIRequestContext, api: string, email: string): Prom
 // Flag OFF — the safe default. This is what production runs on deploy.
 // ---------------------------------------------------------------------------
 
-test('flag off: registration still signs the user straight in', async () => {
+test('flag off: an unverified account can still log in (the safe default)', async () => {
   const rc = await pwRequest.newContext();
   const email = newEmail('flagoff');
+  await registerAt(rc, SHARED_API, email);
 
-  const res = await registerAt(rc, SHARED_API, email);
-  expect(res.status()).toBe(201);
-  const body = await res.json();
+  // THIS is the safe default that matters: with enforcement off, not confirming
+  // your email costs you nothing at sign-in. Flipping the flag is what changes
+  // it — and nothing else about the signup experience does.
+  const res = await loginAt(rc, SHARED_API, email);
+  expect(res.status()).toBe(200);
+  expect((await res.json()).accessToken).toBeTruthy();
+});
 
-  // Unchanged behaviour: a session comes back immediately.
-  expect(body.accessToken, 'an access token must still be issued').toBeTruthy();
-  expect(body.verificationRequired).toBe(false);
+test('register establishes NO session, in either flag state', async () => {
+  // The core regression guard for this change. Registration used to sign the
+  // user straight in whenever enforcement was off, which taught them the
+  // confirmation email was ignorable — and would have locked them all out the
+  // day the flag was switched on.
+  for (const [label, api] of [
+    ['flag off', SHARED_API],
+    ['flag on', OWN_API],
+  ] as const) {
+    const rc = await pwRequest.newContext();
+    const res = await registerAt(rc, api, newEmail(`nosession${label.replace(/\W/g, '')}`));
 
-  // And the unverified account can log in, exactly as before this feature.
-  expect((await loginAt(rc, SHARED_API, email)).status()).toBe(200);
+    expect(res.status(), label).toBe(201);
+    const body = await res.json();
+    expect(body.user, `${label}: the created user is still returned`).toBeTruthy();
+    expect(body.accessToken, `${label}: no access token may be issued`).toBeUndefined();
+
+    // No refresh cookie either — otherwise the client could silently obtain a
+    // session via /auth/refresh and the whole change would be cosmetic.
+    const cookies = await rc.storageState();
+    expect(
+      cookies.cookies.filter((c) => c.name === 'refreshToken'),
+      `${label}: no refresh cookie may be set`
+    ).toEqual([]);
+    expect((await rc.post(`${api}/auth/refresh`)).status(), `${label}: refresh must fail`).toBe(401);
+    await rc.dispose();
+  }
 });
 
 test('flag off: a verification email is still issued (flow is live, just not gating)', async () => {
@@ -123,9 +149,7 @@ test('flag on: register → blocked login → verify → login succeeds', async 
   // Register withholds the session — signup must not grant what login refuses.
   const reg = await registerAt(rc, OWN_API, email);
   expect(reg.status()).toBe(201);
-  const regBody = await reg.json();
-  expect(regBody.verificationRequired).toBe(true);
-  expect(regBody.accessToken, 'no session may be issued before verification').toBeUndefined();
+  expect((await reg.json()).accessToken, 'no session may be issued before verification').toBeUndefined();
 
   // Correct credentials, unverified address → 403 with the discriminator the
   // login page branches on (not a 401, which would be indistinguishable from a
@@ -216,7 +240,73 @@ test('flag on: the admin account is grandfathered and can still sign in', async 
 });
 
 // ---------------------------------------------------------------------------
-// UI — the screen a real customer actually hits.
+// UI — post-registration. Runs against the SHARED stack (flag off) on purpose:
+// the signup experience must be identical in both states, and flag-off is what
+// production currently runs, so this is the real user journey today.
+// ---------------------------------------------------------------------------
+
+for (const width of [375, 1280]) {
+  test.describe(`check-your-email screen @${width}`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test('signup lands on it, echoes the address, and warns about spam', async ({ page }) => {
+      const email = newEmail(`ui${width}`);
+      await page.goto('/register');
+      await page.locator('input[name="name"]').fill('Verify Tester');
+      await page.locator('input[name="email"]').fill(email);
+      await page.locator('input[name="password"]').fill(PASSWORD);
+      await page.locator('input[name="confirmPassword"]').fill(PASSWORD);
+      await page.getByRole('button', { name: 'Create Account' }).click();
+
+      const panel = page.getByTestId('register-check-inbox');
+      await expect(panel).toBeVisible({ timeout: 10_000 });
+      await expect(panel).toContainText(email);
+      await expect(panel, 'spam guidance is load-bearing while the domain warms up').toContainText(
+        /spam or junk/i
+      );
+
+      // Not signed in: the account menu only appears for an authenticated user.
+      await expect(page.getByRole('button', { name: 'Account menu' })).toHaveCount(0);
+      // And it survives a reload — no session was established anywhere.
+      await page.goto('/account');
+      await expect(page).toHaveURL(/\/login/);
+    });
+
+    test('the resend button sends, confirms, and then blocks immediate re-clicks', async ({ page }) => {
+      const email = newEmail(`resendui${width}`);
+      await page.goto('/register');
+      await page.locator('input[name="name"]').fill('Verify Tester');
+      await page.locator('input[name="email"]').fill(email);
+      await page.locator('input[name="password"]').fill(PASSWORD);
+      await page.locator('input[name="confirmPassword"]').fill(PASSWORD);
+      await page.getByRole('button', { name: 'Create Account' }).click();
+      await expect(page.getByTestId('register-check-inbox')).toBeVisible({ timeout: 10_000 });
+
+      // Count only the resend calls, so the one sent by registration itself
+      // isn't mistaken for the button working.
+      let resendCalls = 0;
+      page.on('request', (r) => {
+        if (r.url().includes('/auth/resend-verification') && r.method() === 'POST') resendCalls += 1;
+      });
+
+      const button = page.getByTestId('register-resend');
+      await expect(button).toBeEnabled();
+      await button.click();
+
+      await expect(page.getByTestId('register-check-inbox')).toContainText(/sent/i);
+      expect(resendCalls, 'the resend endpoint should have been called once').toBe(1);
+
+      // Cooldown: disabled, and showing the countdown rather than the CTA, so a
+      // user who can't find the mail can't burn the rate limit in a few seconds.
+      await expect(button).toBeDisabled();
+      await expect(button).toHaveText(/Resend in \d+s/);
+      expect(resendCalls, 'a disabled button must not fire another request').toBe(1);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// UI — the blocked-login screen a real customer hits once enforcement is on.
 // ---------------------------------------------------------------------------
 
 test.describe('blocked-login screen', () => {
