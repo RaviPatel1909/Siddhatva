@@ -8,7 +8,8 @@ import { Seo } from '../components/seo/Seo';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
-import { EMAIL_NOT_VERIFIED, resendVerificationRequest } from '../api/auth';
+import { EMAIL_NOT_VERIFIED } from '../api/auth';
+import { useResendVerification } from '../lib/useResendVerification';
 
 const schema = z.object({
   email: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Enter a valid email'),
@@ -33,20 +34,11 @@ export const LoginPage: React.FC = () => {
   // from serverError because it isn't a failure the user can fix by retyping —
   // it needs its own explanation and a way out.
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
-  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  // Same hook the post-registration screen uses, so both resend paths share one
+  // cooldown behaviour rather than drifting apart.
+  const resend = useResendVerification(unverifiedEmail);
   // One-time notice passed from e.g. a successful password reset.
   const notice = locState?.notice ?? null;
-
-  const onResend = async () => {
-    if (!unverifiedEmail || resendState === 'sending') return;
-    setResendState('sending');
-    try {
-      await resendVerificationRequest({ email: unverifiedEmail });
-    } catch {
-      /* response is intentionally identical regardless — never surface a failure */
-    }
-    setResendState('sent');
-  };
 
   const {
     register,
@@ -57,7 +49,6 @@ export const LoginPage: React.FC = () => {
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
     setUnverifiedEmail(null);
-    setResendState('idle');
     try {
       await login(values.email, values.password);
       navigate(from, { replace: true });
@@ -114,20 +105,24 @@ export const LoginPage: React.FC = () => {
                 <p className="font-body-md text-xs text-on-surface-variant mb-sm">
                   Can&apos;t find it? Check your spam or junk folder — it sometimes lands there.
                 </p>
-                {resendState === 'sent' ? (
-                  <p className="font-body-md text-sm text-success font-semibold">
+                {resend.status === 'sent' && (
+                  <p role="status" className="font-body-md text-sm text-success font-semibold mb-xs">
                     Sent. Check your inbox (and spam).
                   </p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onResend}
-                    disabled={resendState === 'sending'}
-                    className="text-primary font-semibold text-sm hover:underline disabled:opacity-60"
-                  >
-                    {resendState === 'sending' ? 'Sending…' : 'Resend confirmation email'}
-                  </button>
                 )}
+                <button
+                  type="button"
+                  onClick={resend.resend}
+                  disabled={resend.disabled}
+                  data-testid="login-resend"
+                  className="text-primary font-semibold text-sm hover:underline disabled:opacity-60 disabled:no-underline"
+                >
+                  {resend.status === 'sending'
+                    ? 'Sending…'
+                    : resend.secondsLeft > 0
+                      ? `Resend in ${resend.secondsLeft}s`
+                      : 'Resend confirmation email'}
+                </button>
               </div>
             </div>
           </div>

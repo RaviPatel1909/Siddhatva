@@ -14,13 +14,11 @@ interface AuthResponse {
   accessToken: string;
 }
 
-// Register can legitimately come back WITHOUT a session: when the server
-// enforces email verification it withholds the token until the address is
-// confirmed. `verificationRequired` says which shape arrived.
+// Register returns the created user and NOTHING else — no access token, no
+// refresh cookie. Signing up does not sign you in; the user confirms their email
+// and then logs in. Deliberately the same in both enforcement states.
 export interface RegisterResponse {
   user: AuthUser;
-  accessToken?: string;
-  verificationRequired?: boolean;
 }
 
 // Discriminator the server sets on a 403 login when the address is unconfirmed.

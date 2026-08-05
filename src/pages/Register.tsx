@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import { Seo } from '../components/seo/Seo';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
+import { useResendVerification } from '../lib/useResendVerification';
 
 const schema = z
   .object({
@@ -30,14 +31,13 @@ const labelClass =
 
 export const RegisterPage: React.FC = () => {
   const { register: registerUser } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/account';
   const [serverError, setServerError] = useState<string | null>(null);
-  // Set when the server withheld the session pending email confirmation. There
-  // is nothing to navigate to in that case — the account exists but isn't usable
-  // until the link is opened.
-  const [awaitingVerification, setAwaitingVerification] = useState<string | null>(null);
+  // The address the account was created for. Registration never signs the user
+  // in, so on success there is nothing to navigate to — this screen IS the
+  // outcome, in both enforcement states.
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const resend = useResendVerification(registeredEmail);
 
   const {
     register,
@@ -48,18 +48,14 @@ export const RegisterPage: React.FC = () => {
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
     try {
-      const { verificationRequired } = await registerUser(values.email, values.name, values.password);
-      if (verificationRequired) {
-        setAwaitingVerification(values.email);
-        return;
-      }
-      navigate(from, { replace: true });
+      await registerUser(values.email, values.name, values.password);
+      setRegisteredEmail(values.email);
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     }
   });
 
-  if (awaitingVerification) {
+  if (registeredEmail) {
     return (
       <MainLayout>
         <Seo title="Confirm your email" noindex />
@@ -67,22 +63,52 @@ export const RegisterPage: React.FC = () => {
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-lg">
             <span className="material-symbols-outlined text-3xl text-primary">outgoing_mail</span>
           </div>
-          <h1 className="font-display text-headline-lg text-on-surface mb-xs">Check your inbox</h1>
+          <h1 className="font-display text-headline-lg text-on-surface mb-xs">Check your email</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mb-sm">
-            We&apos;ve sent a confirmation link to{' '}
-            <span className="font-semibold">{awaitingVerification}</span>. Open it to activate your
-            account, then sign in.
+            Your account is created. We&apos;ve sent a confirmation link to{' '}
+            <span className="font-semibold">{registeredEmail}</span> — open it to confirm your
+            address, then sign in.
           </p>
+
+          {/* Load-bearing, not boilerplate: mail is currently landing in spam
+              while the sending domain's reputation warms up, so this is the
+              single most likely reason someone can't find it. */}
           <p className="font-body-md text-sm text-on-surface-variant mb-lg">
-            It can take a minute to arrive — and do check your spam or junk folder.
+            It can take a minute to arrive. <span className="font-semibold">Please check your
+            spam or junk folder</span> — new senders often land there.
           </p>
-          <Link
-            to="/resend-verification"
-            state={{ email: awaitingVerification }}
-            className="text-primary font-semibold hover:underline"
-          >
-            Didn&apos;t get it? Send another
-          </Link>
+
+          <div className="border-t border-outline-variant pt-lg">
+            {resend.status === 'sent' ? (
+              <p role="status" className="font-body-md text-sm text-success font-semibold mb-xs">
+                Confirmation email sent — check your inbox and spam folder.
+              </p>
+            ) : (
+              <p className="font-body-md text-sm text-on-surface-variant mb-xs">
+                Didn&apos;t receive it?
+              </p>
+            )}
+            <Button
+              variant="secondary"
+              onClick={resend.resend}
+              disabled={resend.disabled}
+              isLoading={resend.status === 'sending'}
+              data-testid="register-resend"
+            >
+              {resend.secondsLeft > 0
+                ? `Resend in ${resend.secondsLeft}s`
+                : 'Resend verification email'}
+            </Button>
+          </div>
+
+          {/* Carries location.state so a user sent here from a protected route
+              still lands where they were headed once they sign in. */}
+          <p className="text-center text-sm text-on-surface-variant mt-lg">
+            Already confirmed?{' '}
+            <Link to="/login" state={location.state} className="text-primary font-semibold hover:underline">
+              Sign in
+            </Link>
+          </p>
         </div>
       </MainLayout>
     );
