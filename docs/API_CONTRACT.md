@@ -49,7 +49,7 @@ access token is missing/invalid; `requireAdmin` → 403 when the role is not `AD
 
 | Endpoint | Body | Success | Notes |
 |----------|------|---------|-------|
-| `POST /auth/register` | `{ email, name, password }` (password ≥ 8) | `201 { user: PublicUser, accessToken, verificationRequired: false }` + refresh cookie | `409` if email taken. Always emails a confirmation link. **When email verification is enforced** the response is `201 { user, verificationRequired: true }` with **no `accessToken` and no refresh cookie** — signup must not grant the session login would refuse. |
+| `POST /auth/register` | `{ email, name, password }` (password ≥ 8) | `201 { user: PublicUser }` — **no `accessToken`, no refresh cookie** | `409` if email taken. Always emails a confirmation link. Registration **never establishes a session**, in either enforcement state: the client lands on a "check your email" screen and the user signs in afterwards. Identical either way, so enabling enforcement is not a behaviour change for new users. |
 | `POST /auth/login` | `{ email, password }` | `200 { user, accessToken }` + refresh cookie | `401` on bad credentials. **When email verification is enforced**, a correct-credentials login to an unconfirmed address returns `403 { message, code: "EMAIL_NOT_VERIFIED" }`. Checked **after** the password so it is not an account-existence oracle. |
 | `POST /auth/verify-email` | `{ token }` | `200 { ok: true }` | validates the token (exists / not used / not expired — else `400`), stamps `emailVerifiedAt`, marks the token **used (single-use)**. Rate-limited. |
 | `POST /auth/resend-verification` | `{ email }` | `200 { ok: true, message }` | **always identical** whether or not the account exists **and** whether or not it is already confirmed (no account enumeration); rate-limited. Requires **no session** — an unconfirmed user cannot log in, so gating this behind auth would be a dead end. Issuing a new link **invalidates any outstanding one**. |
@@ -73,10 +73,11 @@ confirmation mail may sit unread, whereas a reset is immediate). Dev-only hook
 
 Enforcement is gated by the server-side **`REQUIRE_EMAIL_VERIFICATION`** env flag,
 **default off**. With it off, verification emails are still sent and
-`/auth/verify-email` still works, but `emailVerifiedAt` gates nothing — login and
-register behave exactly as documented in the unflagged columns above. Only the two
-"when enforced" clauses change when it is on. Admins are grandfathered verified by
-the `email_verification` migration and are never blocked.
+`/auth/verify-email` still works, but `emailVerifiedAt` gates nothing — an
+unconfirmed user can still sign in. **Only `POST /auth/login` changes behaviour
+with the flag**; `POST /auth/register` is identical in both states (it never
+issues a session either way). Admins are grandfathered verified by the
+`email_verification` migration and are never blocked.
 
 **Which routes require auth:**
 

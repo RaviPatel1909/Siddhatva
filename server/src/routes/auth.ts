@@ -113,17 +113,19 @@ authRouter.post(
     });
     await sendVerificationEmail(user);
 
-    // When enforcement is ON, registration must NOT hand back a session —
-    // otherwise signup would silently grant the very access login refuses, and
-    // the gate would be trivially sidestepped by registering. When OFF, this is
-    // byte-for-byte the previous behaviour (auto sign-in), which is what keeps
-    // deploying this change inert until the flag is flipped.
-    if (env.requireEmailVerification) {
-      res.status(201).json({ user: toPublicUser(user), verificationRequired: true });
-      return;
-    }
-    const accessToken = await issueSession(res, { id: user.id, role: 'CUSTOMER' });
-    res.status(201).json({ user: toPublicUser(user), accessToken, verificationRequired: false });
+    // Registration NEVER establishes a session — no access token, no refresh
+    // cookie — regardless of whether enforcement is currently on.
+    //
+    // This used to auto-sign-in whenever the flag was off, which quietly taught
+    // every new user that the verification email was ignorable. The day the flag
+    // is switched on, those same users are locked out of an account they have
+    // been using, with no idea why. Making signup end at "check your email" in
+    // both states means flipping the flag changes nothing about what a new user
+    // experiences — the rollout stops being a behaviour change for them.
+    //
+    // It also removes the sidestep: while enforced, registering could otherwise
+    // hand out exactly the access login refuses.
+    res.status(201).json({ user: toPublicUser(user) });
   })
 );
 
